@@ -64,6 +64,11 @@ class AudioEngine : public AudioRenderTarget {
    */
   [[nodiscard]] const SoundDef* FindSoundDef(SoundId id) const noexcept;
 
+  /**
+   * @brief Returns the loaded catalog.
+   */
+  [[nodiscard]] const SoundCatalog& Catalog() const noexcept;
+
  private:
   /**
    * @brief AudioRenderTarget implementation called by the output backend.

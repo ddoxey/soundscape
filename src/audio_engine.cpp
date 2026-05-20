@@ -45,6 +45,8 @@ const SoundDef* AudioEngine::FindSoundDef(SoundId id) const noexcept {
   return catalog_.Find(id);
 }
 
+const SoundCatalog& AudioEngine::Catalog() const noexcept { return catalog_; }
+
 void AudioEngine::Render(float* output, int frame_count) {
   mixer_.Mix(output, frame_count);
 }

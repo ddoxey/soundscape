@@ -19,19 +19,29 @@ bool Mixer::Play(const SoundDef& def, const SoundBuffer& buffer) {
     }
   }
 
-  active_instances_.push_back(SoundInstance{
-      .id = def.id,
-      .buffer = &buffer,
-      .frame_position = 0,
-      .base_gain = def.gain,
-      .current_gain = def.gain,
-      .target_gain = def.gain,
-      .loop = def.loop,
-      .active = true,
-      .priority = def.priority,
-      .duck_others = def.duck_others,
-  });
-  return true;
+  for (SoundInstance& instance : active_instances_) {
+    if (instance.active) {
+      continue;
+    }
+
+    instance = SoundInstance{
+        .id = def.id,
+        .buffer = &buffer,
+        .frame_position = 0,
+        .base_gain = def.gain,
+        .current_gain = def.gain,
+        .target_gain = def.gain,
+        .loop = def.loop,
+        .active = true,
+        .priority = def.priority,
+        .duck_others = def.duck_others,
+    };
+    return true;
+  }
+
+  // Refuse playback when the fixed pool is full. This keeps the render path
+  // allocation-free and makes capacity limits explicit.
+  return false;
 }
 
 void Mixer::Stop(SoundId id) {
@@ -42,7 +52,11 @@ void Mixer::Stop(SoundId id) {
   }
 }
 
-void Mixer::Clear() { active_instances_.clear(); }
+void Mixer::Clear() {
+  for (SoundInstance& instance : active_instances_) {
+    instance.active = false;
+  }
+}
 
 void Mixer::Mix(float* output, int frame_count) {
   std::fill(output,
@@ -68,6 +82,11 @@ void Mixer::Mix(float* output, int frame_count) {
     // Mix one voice into the shared output buffer. The output backend owns the
     // final device format conversion.
     const std::size_t total_frames = instance.buffer->FrameCount();
+    if (total_frames == 0) {
+      instance.active = false;
+      continue;
+    }
+
     for (int frame = 0; frame < frame_count; ++frame) {
       if (instance.frame_position >= total_frames) {
         if (!instance.loop) {
@@ -96,8 +115,6 @@ void Mixer::Mix(float* output, int frame_count) {
     }
   }
 
-  CompactInactiveVoices();
-
   // Clamp after summing all voices so overlapping alerts cannot exceed the
   // normalized output range.
   for (int frame = 0; frame < frame_count; ++frame) {
@@ -105,21 +122,4 @@ void Mixer::Mix(float* output, int frame_count) {
     output[index] = std::clamp(output[index], -1.0f, 1.0f);
     output[index + 1] = std::clamp(output[index + 1], -1.0f, 1.0f);
   }
-}
-
-void Mixer::CompactInactiveVoices() {
-  std::size_t write_index = 0;
-  for (std::size_t read_index = 0; read_index < active_instances_.size();
-       ++read_index) {
-    if (!active_instances_[read_index].active) {
-      continue;
-    }
-
-    if (write_index != read_index) {
-      active_instances_[write_index] = active_instances_[read_index];
-    }
-    ++write_index;
-  }
-
-  active_instances_.resize(write_index);
 }

@@ -78,7 +78,7 @@ class OpenAlAudioOutput {
   /**
    * @brief Renders one chunk and uploads it into an OpenAL buffer.
    */
-  bool FillBuffer(ALuint buffer_id, std::string& error_message);
+  bool FillBuffer(ALuint buffer_id, std::string* error_message);
 
   /**
    * @brief Builds an error message for an OpenAL API error code.

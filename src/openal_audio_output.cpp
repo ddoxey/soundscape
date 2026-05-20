@@ -95,7 +95,7 @@ bool OpenAlAudioOutput::Initialize(AudioRenderTarget& render_target,
   // Prime the OpenAL queue before starting playback so the worker thread has
   // time to refill processed buffers without an immediate underrun.
   for (ALuint buffer_id : buffers_) {
-    if (!FillBuffer(buffer_id, error_message)) {
+    if (!FillBuffer(buffer_id, &error_message)) {
       Shutdown();
       return false;
     }
@@ -188,8 +188,7 @@ void OpenAlAudioOutput::WorkerLoop() {
       ALuint buffer_id = 0;
       alSourceUnqueueBuffers(source_, 1, &buffer_id);
 
-      std::string ignored_error;
-      if (FillBuffer(buffer_id, ignored_error)) {
+      if (FillBuffer(buffer_id, nullptr)) {
         alSourceQueueBuffers(source_, 1, &buffer_id);
       }
 
@@ -211,7 +210,7 @@ void OpenAlAudioOutput::WorkerLoop() {
 }
 
 bool OpenAlAudioOutput::FillBuffer(ALuint buffer_id,
-                                   std::string& error_message) {
+                                   std::string* error_message) {
   {
     const std::lock_guard<std::mutex> lock(render_mutex_);
     if (render_target_ == nullptr) {
@@ -234,7 +233,9 @@ bool OpenAlAudioOutput::FillBuffer(ALuint buffer_id,
 
   const ALenum error = alGetError();
   if (error != AL_NO_ERROR) {
-    error_message = BuildAlError("fill OpenAL buffer", error);
+    if (error_message != nullptr) {
+      *error_message = BuildAlError("fill OpenAL buffer", error);
+    }
     return false;
   }
 

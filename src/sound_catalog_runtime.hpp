@@ -8,6 +8,13 @@
 #include "sound_catalog.hpp"
 
 /**
+ * @brief Parses a YAML/config sound id key into a SoundId value.
+ *
+ * @return true when the key is recognized.
+ */
+[[nodiscard]] bool TryParseSoundId(std::string_view id, SoundId& sound_id);
+
+/**
  * @brief Runtime view of the YAML-backed sound catalog.
  */
 class SoundCatalog {

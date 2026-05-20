@@ -36,7 +36,8 @@ at all when a more urgent warning is already claiming attention.
 |-- CMakeLists.txt
 |-- README.md
 |-- conf/
-|   `-- mock1.yaml
+|   |-- mock1.yaml
+|   `-- script.yml
 |-- sound_catalog.hpp
 |-- sounds/
 `-- src/
@@ -67,11 +68,11 @@ Each `SoundDef` includes:
 - `duck_others`
 - `drop_if_higher_priority_active`
 
-### `conf/*.yaml`
+### `conf/mock1.yaml`
 
-Defines aircraft-specific runtime sound catalogs.
+Defines the default aircraft-specific runtime sound catalog.
 
-These files own the configurable sound dynamics for the POC:
+Aircraft catalog files own the configurable sound dynamics for the POC:
 
 - display names
 - WAV file paths
@@ -82,9 +83,23 @@ These files own the configurable sound dynamics for the POC:
 - suppression flags
 
 The catalog is loaded and validated at startup. The `id` values are stable keys
-that map to the `SoundId` enum used by the scripted demo.
+that map to the `SoundId` enum used by the demo script.
 
 `conf/mock1.yaml` is the default catalog when the user does not specify one.
+
+### `conf/script.yml`
+
+Defines the default scripted demo timeline.
+
+Each event includes:
+
+- `at_seconds`
+- `action`: `play` or `stop`
+- `sound`: a stable sound id from the selected aircraft catalog
+- `note`: optional event log text
+
+The script is loaded and validated at startup. `--validate` checks both the
+selected aircraft catalog and selected script.
 
 ### `src/audio_engine.*`
 
@@ -108,6 +123,8 @@ Implements the runtime voice mixer.
 
 Key details:
 
+- active voices are stored in a fixed-size pool
+- the render path avoids dynamic allocation and container resizing
 - active sounds are mixed in real time with sample clamping
 - short gain ramps are applied to avoid abrupt gain jumps
 
@@ -131,12 +148,17 @@ Key details:
   source fed
 - internal float samples are converted to stereo 16-bit PCM before queueing
 
+The backend still serializes render and control operations with a mutex. That is
+acceptable for this POC because OpenAL Soft is fed by a worker thread rather than
+a hardware audio callback, but a production backend should replace that with a
+preallocated command queue or double-buffered control state.
+
 ### `src/main.cpp`
 
 Implements the scripted demo runner.
 
-It builds a fixed timeline of events, starts the audio engine, triggers events at
-scheduled times, and prints what happened:
+It loads a scripted timeline of events, starts the audio engine, triggers events
+at scheduled times, and prints what happened:
 
 - `PLAY` means the sound was started
 - `STOP` means a looping sound was stopped
@@ -220,19 +242,31 @@ Shorter run:
 Run with an explicit aircraft catalog:
 
 ```bash
-./build/cockpit_soundscape conf/mock1.yaml
+./build/cockpit_soundscape --config conf/mock1.yaml
 ```
 
 Run with both duration and catalog:
 
 ```bash
-./build/cockpit_soundscape conf/mock1.yaml 24
+./build/cockpit_soundscape --config conf/mock1.yaml 24
+```
+
+Run with an explicit script:
+
+```bash
+./build/cockpit_soundscape --script conf/script.yml
+```
+
+Validate a catalog and script without initializing audio or loading WAV assets:
+
+```bash
+./build/cockpit_soundscape --validate --config conf/mock1.yaml --script conf/script.yml
 ```
 
 Headless or sandboxed run without a real audio device:
 
 ```bash
-ALSOFT_DRIVERS=null ./build/cockpit_soundscape conf/mock1.yaml 24
+ALSOFT_DRIVERS=null ./build/cockpit_soundscape --config conf/mock1.yaml --script conf/script.yml 24
 ```
 
 ## Notes

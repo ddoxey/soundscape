@@ -12,6 +12,9 @@
 
 namespace {
 
+/**
+ * @brief Maps external YAML sound keys to stable internal sound ids.
+ */
 const std::unordered_map<std::string, SoundId>& SoundIdByName() {
   static const std::unordered_map<std::string, SoundId> ids{
       {"airplane_ping", SoundId::kAirplanePing},
@@ -40,6 +43,9 @@ const std::unordered_map<std::string, SoundId>& SoundIdByName() {
   return ids;
 }
 
+/**
+ * @brief Maps external YAML priority keys to internal priority values.
+ */
 const std::unordered_map<std::string, SoundPriority>& PriorityByName() {
   static const std::unordered_map<std::string, SoundPriority> priorities{
       {"background", SoundPriority::kBackground},
@@ -50,6 +56,9 @@ const std::unordered_map<std::string, SoundPriority>& PriorityByName() {
   return priorities;
 }
 
+/**
+ * @brief Returns a required catalog YAML field or throws a catalog error.
+ */
 const YAML::Node RequireField(const YAML::Node& node, std::string_view field,
                               std::size_t index) {
   const YAML::Node value = node[std::string(field)];
@@ -62,16 +71,22 @@ const YAML::Node RequireField(const YAML::Node& node, std::string_view field,
   return value;
 }
 
+/**
+ * @brief Parses a required catalog sound id.
+ */
 SoundId ParseSoundId(const std::string& id, std::size_t index) {
-  const auto it = SoundIdByName().find(id);
-  if (it == SoundIdByName().end()) {
+  SoundId sound_id{};
+  if (!TryParseSoundId(id, sound_id)) {
     throw std::runtime_error("catalog entry " + std::to_string(index) +
                              " has unknown id '" + id + "'");
   }
 
-  return it->second;
+  return sound_id;
 }
 
+/**
+ * @brief Parses a required catalog priority value.
+ */
 SoundPriority ParsePriority(const std::string& priority, std::size_t index) {
   const auto it = PriorityByName().find(priority);
   if (it == PriorityByName().end()) {
@@ -82,6 +97,9 @@ SoundPriority ParsePriority(const std::string& priority, std::size_t index) {
   return it->second;
 }
 
+/**
+ * @brief Converts one YAML catalog entry into a SoundDef.
+ */
 SoundDef ParseSoundDef(const YAML::Node& node, std::size_t index) {
   const std::string id = RequireField(node, "id", index).as<std::string>();
   const std::string priority =
@@ -102,6 +120,16 @@ SoundDef ParseSoundDef(const YAML::Node& node, std::size_t index) {
 }
 
 }  // namespace
+
+bool TryParseSoundId(std::string_view id, SoundId& sound_id) {
+  const auto it = SoundIdByName().find(std::string(id));
+  if (it == SoundIdByName().end()) {
+    return false;
+  }
+
+  sound_id = it->second;
+  return true;
+}
 
 bool SoundCatalog::LoadFromFile(std::string_view path,
                                 std::string& error_message) {

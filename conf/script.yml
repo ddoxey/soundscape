@@ -1,0 +1,85 @@
+events:
+  - at_seconds: 0.0
+    action: play
+    sound: ambient
+    note: background loop
+
+  - at_seconds: 0.0
+    action: play
+    sound: engine
+    note: background loop
+
+  - at_seconds: 0.0
+    action: play
+    sound: thrust1
+    note: background texture loop
+
+  - at_seconds: 0.0
+    action: play
+    sound: airport_tower
+    note: tower chatter bed
+
+  - at_seconds: 6.0
+    action: play
+    sound: airplane_ping
+    note: normal event; no ducking
+
+  - at_seconds: 10.0
+    action: play
+    sound: autopilot_disconnect_modern
+    note: alert; ducks background and normal sounds
+
+  - at_seconds: 14.0
+    action: play
+    sound: master_caution_single
+    note: alert; stacks with other alerts
+
+  - at_seconds: 18.0
+    action: play
+    sound: master_caution_loop
+    note: sustained alert loop
+
+  - at_seconds: 22.0
+    action: play
+    sound: terrain_pull_up_gws
+    note: critical; ducks alerts to 70%, normal to 50%, background to 35%
+
+  - at_seconds: 22.0
+    action: play
+    sound: autopilot_disconnect_modern_variant
+    note: suppressed because a critical warning is already active
+
+  - at_seconds: 30.0
+    action: play
+    sound: windshear
+    note: critical warning; equal priority with pull-up, no mutual ducking
+
+  - at_seconds: 38.0
+    action: stop
+    sound: master_caution_loop
+    note: clear sustained alert loop
+
+  - at_seconds: 42.0
+    action: play
+    sound: flight_attendant_single
+    note: normal event; should stay under any active warnings
+
+  - at_seconds: 46.0
+    action: play
+    sound: bingo_low_fuel_f16
+    note: alert event
+
+  - at_seconds: 50.0
+    action: play
+    sound: autopilot_disconnect_classic_boeing
+    note: alert reprise with alternate source
+
+  - at_seconds: 54.0
+    action: play
+    sound: bank_angle
+    note: critical pulse
+
+  - at_seconds: 57.0
+    action: play
+    sound: overspeed_clacker
+    note: critical clacker near program end
