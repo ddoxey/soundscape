@@ -11,8 +11,13 @@ pkg_check_modules(SDL2 REQUIRED sdl2)
 pkg_check_modules(SNDFILE REQUIRED sndfile)
 
 add_executable(cockpit_soundscape
+    src/audio_asset_manager.cpp
     src/audio_engine.cpp
+    src/mixer.cpp
     src/main.cpp
+    src/sdl_audio_output.cpp
+    src/sound_catalog_runtime.cpp
+    src/sound_policy.cpp
 )
 
 target_include_directories(cockpit_soundscape PRIVATE
