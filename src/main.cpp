@@ -60,11 +60,11 @@ void PrintTriggeredEvent(const AudioEngine& engine, double elapsed_seconds,
   std::cout << '\n';
 }
 
-void PrintSuppressedEvent(const AudioEngine& engine, double elapsed_seconds,
-                          const ScheduledEvent& event) {
+void PrintRejectedEvent(const AudioEngine& engine, double elapsed_seconds,
+                        const ScheduledEvent& event) {
   std::cout << std::fixed << std::setprecision(1) << "[" << std::setw(5)
             << elapsed_seconds << "s] "
-            << "DROP " << SoundName(engine, event.id);
+            << "REJECT " << SoundName(engine, event.id);
   if (!event.note.empty()) {
     std::cout << "  " << event.note;
   }
@@ -336,7 +336,7 @@ int main(int argc, char** argv) {
       } else if (engine.Play(event.id)) {
         PrintTriggeredEvent(engine, elapsed_seconds, event);
       } else {
-        PrintSuppressedEvent(engine, elapsed_seconds, event);
+        PrintRejectedEvent(engine, elapsed_seconds, event);
       }
       ++next_event_index;
     }

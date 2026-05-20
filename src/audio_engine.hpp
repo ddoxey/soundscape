@@ -1,5 +1,8 @@
 #pragma once
 
+#include <array>
+#include <atomic>
+#include <cstddef>
 #include <string>
 #include <string_view>
 
@@ -49,8 +52,8 @@ class AudioEngine : public AudioRenderTarget {
   /**
    * @brief Requests playback of a catalog sound.
    *
-   * @return true if playback started or an existing loop was refreshed; false
-   * if the sound was unknown, unloaded, or suppressed by policy.
+   * @return true if the request was queued; false if the sound was unknown,
+   * unloaded, or the fixed control queue was full.
    */
   [[nodiscard]] bool Play(SoundId id);
 
@@ -75,8 +78,50 @@ class AudioEngine : public AudioRenderTarget {
    */
   void Render(float* output, int frame_count) override;
 
+  /**
+   * @brief Control operations consumed by the render worker.
+   */
+  enum class ControlCommandType { kPlay, kStop };
+
+  /**
+   * @brief Fixed-size command payload for non-blocking control requests.
+   *
+   * Play commands carry pointers into the loaded catalog and asset manager.
+   * Those pointers remain valid until Shutdown(), which stops the worker before
+   * releasing assets.
+   */
+  struct ControlCommand {
+    ControlCommandType type = ControlCommandType::kStop;
+    SoundId id{};
+    const SoundDef* def = nullptr;
+    const SoundBuffer* buffer = nullptr;
+  };
+
+  /**
+   * @brief Enqueues one non-blocking control command for the render worker.
+   */
+  [[nodiscard]] bool EnqueueControlCommand(const ControlCommand& command);
+
+  /**
+   * @brief Applies all queued control commands on the render worker.
+   */
+  void DrainControlCommands();
+
+  /**
+   * @brief Discards queued commands when shutting down or reloading assets.
+   */
+  void ClearControlCommands();
+
+  /**
+   * @brief Maximum queued play/stop requests waiting for the render worker.
+   */
+  static constexpr std::size_t kControlCommandQueueCapacity = 64;
+
   SoundCatalog catalog_;
   AudioAssetManager assets_;
   Mixer mixer_;
   OpenAlAudioOutput output_;
+  std::array<ControlCommand, kControlCommandQueueCapacity> control_commands_{};
+  std::atomic_size_t control_write_index_ = 0;
+  std::atomic_size_t control_read_index_ = 0;
 };

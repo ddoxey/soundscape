@@ -125,6 +125,7 @@ Key details:
 
 - active voices are stored in a fixed-size pool
 - the render path avoids dynamic allocation and container resizing
+- play/stop requests use a fixed-size control queue consumed by the render worker
 - active sounds are mixed in real time with sample clamping
 - short gain ramps are applied to avoid abrupt gain jumps
 
@@ -148,10 +149,9 @@ Key details:
   source fed
 - internal float samples are converted to stereo 16-bit PCM before queueing
 
-The backend still serializes render and control operations with a mutex. That is
-acceptable for this POC because OpenAL Soft is fed by a worker thread rather than
-a hardware audio callback, but a production backend should replace that with a
-preallocated command queue or double-buffered control state.
+The OpenAL worker drains queued control requests before each mix pass. `Play`
+reports whether the request was queued, while suppression/drop policy is applied
+later by the render worker.
 
 ### `src/main.cpp`
 
@@ -160,9 +160,13 @@ Implements the scripted demo runner.
 It loads a scripted timeline of events, starts the audio engine, triggers events
 at scheduled times, and prints what happened:
 
-- `PLAY` means the sound was started
-- `STOP` means a looping sound was stopped
-- `DROP` means the sound was intentionally suppressed by policy
+- `PLAY` means a playback request was queued
+- `STOP` means a stop request was queued
+- `REJECT` means the request could not be queued or referenced an unavailable
+  sound
+
+Suppression policy is applied later by the render worker when queued requests
+are consumed.
 
 ## Audio Policy
 

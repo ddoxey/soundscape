@@ -211,13 +211,10 @@ void OpenAlAudioOutput::WorkerLoop() {
 
 bool OpenAlAudioOutput::FillBuffer(ALuint buffer_id,
                                    std::string* error_message) {
-  {
-    const std::lock_guard<std::mutex> lock(render_mutex_);
-    if (render_target_ == nullptr) {
-      std::fill(scratch_buffer_.begin(), scratch_buffer_.end(), 0.0f);
-    } else {
-      render_target_->Render(scratch_buffer_.data(), kBufferFramesPerChunk);
-    }
+  if (render_target_ == nullptr) {
+    std::fill(scratch_buffer_.begin(), scratch_buffer_.end(), 0.0f);
+  } else {
+    render_target_->Render(scratch_buffer_.data(), kBufferFramesPerChunk);
   }
 
   // OpenAL Soft can support float buffers via extensions, but 16-bit stereo PCM

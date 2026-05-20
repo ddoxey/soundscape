@@ -6,7 +6,6 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
-#include <mutex>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -57,15 +56,6 @@ class OpenAlAudioOutput {
    */
   void Shutdown();
 
-  /**
-   * @brief Serializes modifications that can race with the streaming worker.
-   */
-  template <typename Fn>
-  void WithDeviceLock(const Fn& fn) {
-    const std::lock_guard<std::mutex> lock(render_mutex_);
-    fn();
-  }
-
  private:
   static constexpr int kQueuedBufferCount = 4;
   static constexpr int kBufferFramesPerChunk = kBufferFrames;
@@ -98,7 +88,6 @@ class OpenAlAudioOutput {
   std::vector<float> scratch_buffer_;
   std::vector<std::int16_t> pcm_buffer_;
   AudioRenderTarget* render_target_ = nullptr;
-  std::mutex render_mutex_;
   std::thread worker_thread_;
   std::atomic_bool running_ = false;
 };
