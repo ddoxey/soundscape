@@ -7,6 +7,8 @@ bool SoundPolicyEngine::CanStart(
     return true;
   }
 
+  // Suppression is evaluated at trigger time only. Once a sound is active,
+  // ducking handles gain relationships while it plays.
   return !HigherPrioritySoundActive(def.priority, active_instances);
 }
 
@@ -16,6 +18,8 @@ float SoundPolicyEngine::DuckFactorFor(
   SoundPriority highest_ducker = SoundPriority::kBackground;
   bool ducking_active = false;
 
+  // The strongest active ducking sound controls the ducking curve. Equal or
+  // higher-priority targets are left untouched by DuckGainFor().
   for (const SoundInstance& instance : active_instances) {
     if (!instance.active || !instance.duck_others) {
       continue;

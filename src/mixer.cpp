@@ -9,6 +9,8 @@ bool Mixer::Play(const SoundDef& def, const SoundBuffer& buffer) {
   }
 
   if (def.loop) {
+    // A looping bed should be idempotent: replaying it refreshes its gain
+    // target instead of adding another copy of the same loop.
     for (SoundInstance& instance : active_instances_) {
       if (instance.active && instance.id == def.id && instance.loop) {
         instance.target_gain = instance.base_gain;
@@ -47,6 +49,8 @@ void Mixer::Mix(float* output, int frame_count) {
             output + static_cast<std::size_t>(frame_count) * kOutputChannels,
             0.0f);
 
+  // Gain changes are ramped over a short window to avoid clicks when ducking
+  // turns on/off or when loops are stopped.
   constexpr float kRampTimeSeconds = 0.015f;
   const float ramp_step =
       1.0f /
@@ -61,6 +65,8 @@ void Mixer::Mix(float* output, int frame_count) {
         policy_.DuckFactorFor(instance.priority, active_instances_);
     instance.target_gain = instance.base_gain * duck_factor;
 
+    // Mix one voice into the shared output buffer. The output backend owns the
+    // final device format conversion.
     const std::size_t total_frames = instance.buffer->FrameCount();
     for (int frame = 0; frame < frame_count; ++frame) {
       if (instance.frame_position >= total_frames) {
@@ -92,6 +98,8 @@ void Mixer::Mix(float* output, int frame_count) {
 
   CompactInactiveVoices();
 
+  // Clamp after summing all voices so overlapping alerts cannot exceed the
+  // normalized output range.
   for (int frame = 0; frame < frame_count; ++frame) {
     const std::size_t index = static_cast<std::size_t>(frame) * kOutputChannels;
     output[index] = std::clamp(output[index], -1.0f, 1.0f);

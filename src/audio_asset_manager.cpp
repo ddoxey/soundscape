@@ -56,6 +56,8 @@ bool AudioAssetManager::LoadSound(const SoundDef& def,
     return false;
   }
 
+  // libsndfile returns interleaved float samples in the file's native channel
+  // count and sample rate; normalize that before exposing the buffer.
   buffers_.emplace(def.id, ResampleToInternalFormat(
                                source_samples, info.channels, info.samplerate));
   return true;
@@ -78,6 +80,8 @@ SoundBuffer AudioAssetManager::ResampleToInternalFormat(
   output.samples.resize(output_frames * kOutputChannels);
 
   for (std::size_t frame = 0; frame < output_frames; ++frame) {
+    // Linear interpolation is enough for this POC and keeps the conversion
+    // dependency-free. Production code may want a higher-quality resampler.
     const double source_position = static_cast<double>(frame) / ratio;
     const std::size_t left_index = std::min<std::size_t>(
         source_frames - 1, static_cast<std::size_t>(source_position));
@@ -86,6 +90,8 @@ SoundBuffer AudioAssetManager::ResampleToInternalFormat(
         static_cast<float>(source_position - static_cast<double>(left_index));
 
     for (int channel = 0; channel < kOutputChannels; ++channel) {
+      // Mono files are duplicated into both output channels; files with more
+      // channels use the first two channels.
       const int source_channel = std::min(channel, source_channels - 1);
       const float left_sample =
           source_samples[left_index *

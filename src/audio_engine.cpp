@@ -12,7 +12,12 @@ void AudioEngine::Shutdown() {
   assets_.Clear();
 }
 
-bool AudioEngine::LoadCatalog(std::string& error_message) {
+bool AudioEngine::LoadCatalog(std::string_view catalog_path,
+                              std::string& error_message) {
+  if (!catalog_.LoadFromFile(catalog_path, error_message)) {
+    return false;
+  }
+
   return assets_.LoadCatalog(catalog_, error_message);
 }
 

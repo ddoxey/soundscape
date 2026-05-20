@@ -1,0 +1,171 @@
+sounds:
+  - id: airplane_ping
+    name: Airplane Ping
+    file_path: sounds/airplane_ping.wav
+    loop: false
+    gain: 0.65
+    priority: normal
+    duck_others: false
+    drop_if_higher_priority_active: false
+
+  - id: airport_tower
+    name: Airport Tower
+    file_path: sounds/airport__tower.wav
+    loop: true
+    gain: 0.22
+    priority: background
+    duck_others: false
+    drop_if_higher_priority_active: false
+
+  - id: ambient
+    name: Ambient
+    file_path: sounds/ambient.wav
+    loop: true
+    gain: 0.30
+    priority: background
+    duck_others: false
+    drop_if_higher_priority_active: false
+
+  - id: autopilot_disconnect_classic_boeing
+    name: Autopilot Disconnect Classic Boeing
+    file_path: sounds/autopilot_disconnect_classic_boeing.wav
+    loop: false
+    gain: 0.90
+    priority: alert
+    duck_others: true
+    drop_if_higher_priority_active: true
+
+  - id: autopilot_disconnect_modern_variant
+    name: Autopilot Disconnect Modern Variant
+    file_path: sounds/autopilot_disconnect_modern (1).wav
+    loop: false
+    gain: 0.90
+    priority: alert
+    duck_others: true
+    drop_if_higher_priority_active: true
+
+  - id: autopilot_disconnect_modern
+    name: Autopilot Disconnect
+    file_path: sounds/autopilot_disconnect_modern.wav
+    loop: false
+    gain: 0.90
+    priority: alert
+    duck_others: true
+    drop_if_higher_priority_active: true
+
+  - id: master_caution_loop
+    name: Master Caution Loop
+    file_path: sounds/b757_767_master_caution.wav
+    loop: true
+    gain: 0.85
+    priority: alert
+    duck_others: true
+    drop_if_higher_priority_active: false
+
+  - id: master_caution_single
+    name: Master Caution Single
+    file_path: sounds/b757_767_master_caution_single.wav
+    loop: false
+    gain: 0.90
+    priority: alert
+    duck_others: true
+    drop_if_higher_priority_active: true
+
+  - id: bank_angle
+    name: Bank Angle
+    file_path: sounds/bank_angle.wav
+    loop: false
+    gain: 0.95
+    priority: critical
+    duck_others: true
+    drop_if_higher_priority_active: false
+
+  - id: bingo_low_fuel_f16
+    name: Bingo Low Fuel F-16
+    file_path: sounds/bingo_low_fuel_f16.wav
+    loop: false
+    gain: 0.85
+    priority: alert
+    duck_others: true
+    drop_if_higher_priority_active: true
+
+  - id: configuration_warning_classic_boeing
+    name: Configuration Warning Classic Boeing
+    file_path: sounds/configuration_warning_classic_boeing.wav
+    loop: true
+    gain: 0.85
+    priority: alert
+    duck_others: true
+    drop_if_higher_priority_active: true
+
+  - id: engine
+    name: Engine
+    file_path: sounds/engine.wav
+    loop: true
+    gain: 0.45
+    priority: background
+    duck_others: false
+    drop_if_higher_priority_active: false
+
+  - id: fire_bell_modern_757_767
+    name: Fire Bell Modern 757/767
+    file_path: sounds/fire_bell_modern_757_767.wav
+    loop: false
+    gain: 0.95
+    priority: critical
+    duck_others: true
+    drop_if_higher_priority_active: false
+
+  - id: fire_bell_classic
+    name: Fire Bell Classic
+    file_path: sounds/firebell_classic.wav
+    loop: false
+    gain: 0.95
+    priority: critical
+    duck_others: true
+    drop_if_higher_priority_active: false
+
+  - id: flight_attendant_single
+    name: Flight Attendant Single
+    file_path: sounds/flight_attendant_single.wav
+    loop: false
+    gain: 0.60
+    priority: normal
+    duck_others: false
+    drop_if_higher_priority_active: true
+
+  - id: overspeed_clacker
+    name: Overspeed Clacker
+    file_path: sounds/overspeed_clacker.wav
+    loop: true
+    gain: 1.00
+    priority: critical
+    duck_others: true
+    drop_if_higher_priority_active: false
+
+  - id: terrain_pull_up_gws
+    name: Terrain Pull Up
+    file_path: sounds/terrain_pull_up_gws.wav
+    loop: false
+    gain: 1.00
+    priority: critical
+    duck_others: true
+    drop_if_higher_priority_active: false
+
+  - id: thrust1
+    name: Thrust 1
+    file_path: sounds/thrust1.wav
+    loop: true
+    gain: 0.35
+    priority: background
+    duck_others: false
+    drop_if_higher_priority_active: false
+
+  - id: windshear
+    name: Windshear
+    file_path: sounds/windshear.wav
+    loop: false
+    gain: 1.00
+    priority: critical
+    duck_others: true
+    drop_if_higher_priority_active: false

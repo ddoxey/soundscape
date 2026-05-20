@@ -12,6 +12,8 @@
 
 namespace {
 
+constexpr std::string_view kDefaultCatalogPath = "conf/mock1.yaml";
+
 struct ScheduledEvent {
   double at_seconds = 0.0;
   bool stop = false;
@@ -19,40 +21,42 @@ struct ScheduledEvent {
   std::string_view note;
 };
 
-std::string_view SoundName(SoundId id) {
-  for (const SoundDef& def : kSoundCatalog) {
-    if (def.id == id) {
-      return def.name;
-    }
+std::string_view SoundName(const AudioEngine& engine, SoundId id) {
+  const SoundDef* def = engine.FindSoundDef(id);
+  if (def != nullptr) {
+    return std::string_view(def->name);
   }
 
   return "Unknown";
 }
 
-void PrintTimelineEvent(const ScheduledEvent& event) {
+void PrintTimelineEvent(const AudioEngine& engine,
+                        const ScheduledEvent& event) {
   std::cout << std::fixed << std::setprecision(1) << "[" << std::setw(5)
             << event.at_seconds << "s] " << (event.stop ? "STOP " : "PLAY ")
-            << SoundName(event.id);
+            << SoundName(engine, event.id);
   if (!event.note.empty()) {
     std::cout << "  " << event.note;
   }
   std::cout << '\n';
 }
 
-void PrintTriggeredEvent(double elapsed_seconds, const ScheduledEvent& event) {
+void PrintTriggeredEvent(const AudioEngine& engine, double elapsed_seconds,
+                         const ScheduledEvent& event) {
   std::cout << std::fixed << std::setprecision(1) << "[" << std::setw(5)
             << elapsed_seconds << "s] " << (event.stop ? "STOP " : "PLAY ")
-            << SoundName(event.id);
+            << SoundName(engine, event.id);
   if (!event.note.empty()) {
     std::cout << "  " << event.note;
   }
   std::cout << '\n';
 }
 
-void PrintSuppressedEvent(double elapsed_seconds, const ScheduledEvent& event) {
+void PrintSuppressedEvent(const AudioEngine& engine, double elapsed_seconds,
+                          const ScheduledEvent& event) {
   std::cout << std::fixed << std::setprecision(1) << "[" << std::setw(5)
             << elapsed_seconds << "s] "
-            << "DROP " << SoundName(event.id);
+            << "DROP " << SoundName(engine, event.id);
   if (!event.note.empty()) {
     std::cout << "  " << event.note;
   }
@@ -89,48 +93,74 @@ std::vector<ScheduledEvent> BuildTimeline() {
   };
 }
 
-double ParseDuration(int argc, char** argv) {
+struct RuntimeOptions {
+  double duration_seconds = 60.0;
+  std::string catalog_path = std::string(kDefaultCatalogPath);
+};
+
+bool TryParsePositiveDouble(std::string_view text, double& value) {
+  std::string owned_text(text);
+  char* parse_end = nullptr;
+  const double parsed_value = std::strtod(owned_text.c_str(), &parse_end);
+  if (parse_end == owned_text.c_str() || *parse_end != '\0' ||
+      parsed_value <= 0.0) {
+    return false;
+  }
+
+  value = parsed_value;
+  return true;
+}
+
+RuntimeOptions ParseOptions(int argc, char** argv) {
+  RuntimeOptions options;
   if (argc < 2) {
-    return 60.0;
+    return options;
   }
 
-  const double duration = std::strtod(argv[1], nullptr);
-  if (duration <= 0.0) {
-    return 60.0;
+  for (int index = 1; index < argc; ++index) {
+    double parsed_duration = 0.0;
+    if (TryParsePositiveDouble(argv[index], parsed_duration)) {
+      options.duration_seconds = parsed_duration;
+    } else {
+      options.catalog_path = argv[index];
+    }
   }
 
-  return duration;
+  return options;
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-  const double duration_seconds = ParseDuration(argc, argv);
+  const RuntimeOptions options = ParseOptions(argc, argv);
   std::string error_message;
 
   AudioEngine engine;
   if (!engine.Initialize(error_message)) {
     std::cerr
         << "Audio initialization failed: " << error_message
-        << "\nSet SDL_AUDIODRIVER=dummy to run in a headless environment.\n";
+        << "\nSet ALSOFT_DRIVERS=null to run OpenAL Soft without a real audio "
+           "device.\n";
     return 1;
   }
 
-  if (!engine.LoadCatalog(error_message)) {
+  if (!engine.LoadCatalog(options.catalog_path, error_message)) {
     std::cerr << "Catalog load failed: " << error_message << '\n';
     return 1;
   }
 
   std::vector<ScheduledEvent> timeline = BuildTimeline();
-  std::erase_if(timeline, [duration_seconds](const ScheduledEvent& event) {
-    return event.at_seconds > duration_seconds;
+  std::erase_if(timeline, [&options](const ScheduledEvent& event) {
+    return event.at_seconds > options.duration_seconds;
   });
 
-  std::cout << "Cockpit soundscape demo running for " << duration_seconds
-            << " seconds.\n";
+  std::cout << "Cockpit soundscape demo using catalog " << options.catalog_path
+            << ".\n";
+  std::cout << "Cockpit soundscape demo running for "
+            << options.duration_seconds << " seconds.\n";
   std::cout << "Scheduled events:\n";
   for (const ScheduledEvent& event : timeline) {
-    PrintTimelineEvent(event);
+    PrintTimelineEvent(engine, event);
   }
   std::cout << "----\nTriggering events:\n";
 
@@ -147,16 +177,16 @@ int main(int argc, char** argv) {
       const ScheduledEvent& event = timeline[next_event_index];
       if (event.stop) {
         engine.Stop(event.id);
-        PrintTriggeredEvent(elapsed_seconds, event);
+        PrintTriggeredEvent(engine, elapsed_seconds, event);
       } else if (engine.Play(event.id)) {
-        PrintTriggeredEvent(elapsed_seconds, event);
+        PrintTriggeredEvent(engine, elapsed_seconds, event);
       } else {
-        PrintSuppressedEvent(elapsed_seconds, event);
+        PrintSuppressedEvent(engine, elapsed_seconds, event);
       }
       ++next_event_index;
     }
 
-    if (elapsed_seconds >= duration_seconds) {
+    if (elapsed_seconds >= options.duration_seconds) {
       break;
     }
 

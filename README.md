@@ -1,6 +1,7 @@
 # Cockpit Soundscape POC
 
-This repository contains a small C++ proof of concept for cockpit-style sound mixing.
+This repository contains a small C++ proof of concept for cockpit-style sound
+mixing.
 
 The current program is a command-line demo that:
 
@@ -8,38 +9,52 @@ The current program is a command-line demo that:
 - converts them into a common internal format
 - plays looping background beds and one-shot alerts together
 - applies priority-based ducking
-- suppresses selected lower-priority alerts entirely when a higher-priority alert is already active
-- runs a scripted timeline for 60 seconds by default and prints the event log as it plays
+- suppresses selected lower-priority alerts entirely when a higher-priority
+  alert is already active
+- runs a scripted timeline for 60 seconds by default and prints the event log as
+  it plays
 
 ## Current Behavior
 
 The mixer currently demonstrates three distinct behaviors:
 
-1. Background ambience can remain continuously present while other sounds play on top.
-2. Higher-priority alerts can duck lower-priority material instead of fully muting it.
-3. Some alerts are configured to be dropped completely if a higher-priority sound is already active.
+1. Background ambience can remain continuously present while other sounds play on
+   top.
+2. Higher-priority alerts can duck lower-priority material instead of fully
+   muting it.
+3. Some alerts are configured to be dropped completely if a higher-priority
+   sound is already active.
 
-That third case is intentional. The POC is not just showing gain reduction; it is also modeling the operational reality that certain callouts should not be heard at all when a more urgent warning is already claiming attention.
+That third case is intentional. The POC is not just showing gain reduction; it is
+also modeling the operational reality that certain callouts should not be heard
+at all when a more urgent warning is already claiming attention.
 
 ## Project Layout
 
 ```text
 .
-├── CMakeLists.txt
-├── README.md
-├── sound_catalog.hpp
-├── sounds/
-└── src/
-    ├── audio_engine.cpp
-    ├── audio_engine.hpp
-    └── main.cpp
+|-- CMakeLists.txt
+|-- README.md
+|-- conf/
+|   `-- mock1.yaml
+|-- sound_catalog.hpp
+|-- sounds/
+`-- src/
+    |-- audio_asset_manager.*
+    |-- audio_engine.*
+    |-- audio_types.hpp
+    |-- main.cpp
+    |-- mixer.*
+    |-- openal_audio_output.*
+    |-- sound_catalog_runtime.*
+    `-- sound_policy.*
 ```
 
 ## Implementation Summary
 
 ### `sound_catalog.hpp`
 
-Defines the static sound catalog.
+Defines shared sound catalog types.
 
 Each `SoundDef` includes:
 
@@ -52,26 +67,76 @@ Each `SoundDef` includes:
 - `duck_others`
 - `drop_if_higher_priority_active`
 
-The catalog is currently tailored to the WAV files present in `sounds/`.
+### `conf/*.yaml`
+
+Defines aircraft-specific runtime sound catalogs.
+
+These files own the configurable sound dynamics for the POC:
+
+- display names
+- WAV file paths
+- loop flags
+- nominal gains
+- priority levels
+- ducking flags
+- suppression flags
+
+The catalog is loaded and validated at startup. The `id` values are stable keys
+that map to the `SoundId` enum used by the scripted demo.
+
+`conf/mock1.yaml` is the default catalog when the user does not specify one.
 
 ### `src/audio_engine.*`
 
-Implements the runtime mixer.
+Provides the public facade used by the demo.
+
+It owns the catalog, asset manager, mixer, and OpenAL output backend, but
+delegates the detailed responsibilities to those smaller runtime components.
+
+### `src/audio_asset_manager.*`
+
+Loads and prepares audio assets.
 
 Key details:
 
 - `libsndfile` is used to load WAV files
 - all audio is converted into internal `48 kHz`, stereo, float buffers
-- `SDL2` provides the playback device and audio callback
+
+### `src/mixer.*`
+
+Implements the runtime voice mixer.
+
+Key details:
+
 - active sounds are mixed in real time with sample clamping
 - short gain ramps are applied to avoid abrupt gain jumps
+
+### `src/sound_policy.*`
+
+Owns runtime policy decisions.
+
+Key details:
+
+- priority-based ducking is evaluated from the active voice list
 - playback can be refused for sounds marked `drop_if_higher_priority_active`
+
+### `src/openal_audio_output.*`
+
+Provides the playback backend.
+
+Key details:
+
+- OpenAL Soft owns the playback device and queued streaming buffers
+- a small worker thread asks the mixer for chunks of audio and keeps the OpenAL
+  source fed
+- internal float samples are converted to stereo 16-bit PCM before queueing
 
 ### `src/main.cpp`
 
 Implements the scripted demo runner.
 
-It builds a fixed timeline of events, starts the audio engine, triggers events at scheduled times, and prints what happened:
+It builds a fixed timeline of events, starts the audio engine, triggers events at
+scheduled times, and prints what happened:
 
 - `PLAY` means the sound was started
 - `STOP` means a looping sound was stopped
@@ -88,14 +153,18 @@ The mixer uses these priority levels:
 
 Current ducking behavior:
 
-- If an alert is active and `duck_others` is enabled, background and normal sounds are reduced.
-- If a critical warning is active and `duck_others` is enabled, background, normal, and alert sounds are reduced more aggressively.
+- If an alert is active and `duck_others` is enabled, background and normal
+  sounds are reduced.
+- If a critical warning is active and `duck_others` is enabled, background,
+  normal, and alert sounds are reduced more aggressively.
 - Sounds of equal or higher priority are not ducked by the active sound.
 
 Current suppression behavior:
 
-- Sounds marked `drop_if_higher_priority_active` are not started if a higher-priority sound is already active at trigger time.
-- This is used to model situations where a less important alert should not be heard at all under a more urgent warning.
+- Sounds marked `drop_if_higher_priority_active` are not started if a
+  higher-priority sound is already active at trigger time.
+- This is used to model situations where a less important alert should not be
+  heard at all under a more urgent warning.
 
 ## Demo Timeline
 
@@ -103,10 +172,13 @@ The default run is 60 seconds.
 
 The scripted demo currently includes:
 
-- continuous background loops such as ambient, engine, thrust texture, and tower chatter
+- continuous background loops such as ambient, engine, thrust texture, and tower
+  chatter
 - alert-style tones such as autopilot disconnect and master caution
-- critical warnings such as terrain pull up, windshear, bank angle, and overspeed clacker
-- an explicit suppression example where `Autopilot Disconnect Modern Variant` is dropped when `Terrain Pull Up` is triggered at the same moment
+- critical warnings such as terrain pull up, windshear, bank angle, and
+  overspeed clacker
+- an explicit suppression example where `Autopilot Disconnect Modern Variant` is
+  dropped when `Terrain Pull Up` is triggered at the same moment
 
 ## Build
 
@@ -114,8 +186,15 @@ Requirements:
 
 - CMake 3.20+
 - a C++20 compiler
-- `SDL2`
+- OpenAL Soft
 - `libsndfile`
+- `yaml-cpp`
+
+On Ubuntu:
+
+```bash
+sudo apt install libopenal-dev libsndfile1-dev libyaml-cpp-dev
+```
 
 Build:
 
@@ -138,15 +217,29 @@ Shorter run:
 ./build/cockpit_soundscape 24
 ```
 
+Run with an explicit aircraft catalog:
+
+```bash
+./build/cockpit_soundscape conf/mock1.yaml
+```
+
+Run with both duration and catalog:
+
+```bash
+./build/cockpit_soundscape conf/mock1.yaml 24
+```
+
 Headless or sandboxed run without a real audio device:
 
 ```bash
-SDL_AUDIODRIVER=dummy ./build/cockpit_soundscape 24
+ALSOFT_DRIVERS=null ./build/cockpit_soundscape conf/mock1.yaml 24
 ```
 
 ## Notes
 
-- The sound gains and some loop choices are still POC tuning values, not final mix decisions.
+- The sound gains and some loop choices are still POC tuning values, not final
+  mix decisions.
 - The scheduler is intentionally simple and deterministic.
 - This is not yet a general-purpose audio engine or simulator integration layer.
-- The current focus is proving mixing, ducking, suppression, and catalog-driven behavior with real assets.
+- The current focus is proving mixing, ducking, suppression, and catalog-driven
+  behavior with real assets.
