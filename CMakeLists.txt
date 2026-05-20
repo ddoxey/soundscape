@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(PkgConfig REQUIRED)
 find_package(OpenAL REQUIRED)
+find_package(Threads REQUIRED)
 find_package(yaml-cpp REQUIRED)
 pkg_check_modules(SNDFILE REQUIRED sndfile)
 
@@ -26,6 +27,7 @@ add_executable(cockpit_soundscape
     src/main.cpp
     src/openal_audio_output.cpp
     src/sound_catalog_runtime.cpp
+    src/sound_control_queue.cpp
     src/sound_policy.cpp
 )
 
@@ -48,5 +50,6 @@ target_link_directories(cockpit_soundscape PRIVATE
 target_link_libraries(cockpit_soundscape PRIVATE
     ${OPENAL_LIBRARY}
     ${SNDFILE_LIBRARIES}
+    Threads::Threads
     ${YAML_CPP_TARGET}
 )

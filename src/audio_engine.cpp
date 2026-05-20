@@ -48,6 +48,23 @@ void AudioEngine::Stop(SoundId id) {
   }));
 }
 
+void AudioEngine::Run(SoundControlQueue& control_queue) {
+  SoundControlMessage message;
+  while (control_queue.WaitAndPop(&message)) {
+    switch (message.type) {
+      case SoundControlMessageType::kPlay:
+        static_cast<void>(Play(message.event_id));
+        break;
+      case SoundControlMessageType::kStop:
+        Stop(message.event_id);
+        break;
+      case SoundControlMessageType::kShutdown:
+        control_queue.Close();
+        return;
+    }
+  }
+}
+
 const SoundDef* AudioEngine::FindSoundDef(SoundId id) const noexcept {
   return catalog_.Find(id);
 }

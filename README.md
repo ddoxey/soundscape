@@ -48,6 +48,7 @@ at all when a more urgent warning is already claiming attention.
     |-- mixer.*
     |-- openal_audio_output.*
     |-- sound_catalog_runtime.*
+    |-- sound_control_queue.*
     `-- sound_policy.*
 ```
 
@@ -149,24 +150,73 @@ Key details:
   source fed
 - internal float samples are converted to stereo 16-bit PCM before queueing
 
-The OpenAL worker drains queued control requests before each mix pass. `Play`
-reports whether the request was queued, while suppression/drop policy is applied
-later by the render worker.
+The OpenAL worker drains queued render-control requests before each mix pass.
+`Play` reports whether the request was queued, while suppression/drop policy is
+applied later by the render worker.
+
+### `src/sound_control_queue.*`
+
+Provides a host-facing event-notification queue for embedded use.
+
+Key details:
+
+- messages are `play`, `stop`, or `shutdown`
+- each play/stop message carries an `event_id` related to one sound inventory
+  entry
+- producers can use `TryPush()` to avoid blocking
+- `AudioEngine::Run()` blocks on the queue and dispatches messages into the
+  engine's non-blocking render-control path
 
 ### `src/main.cpp`
 
 Implements the scripted demo runner.
 
 It loads a scripted timeline of events, starts the audio engine, triggers events
-at scheduled times, and prints what happened:
+at scheduled times by pushing `SoundControlMessage` values, and prints what
+happened:
 
-- `PLAY` means a playback request was queued
-- `STOP` means a stop request was queued
+- `PLAY` means a play event notification was queued
+- `STOP` means a stop event notification was queued
 - `REJECT` means the request could not be queued or referenced an unavailable
   sound
 
-Suppression policy is applied later by the render worker when queued requests
-are consumed.
+Suppression policy is applied later by the render worker after queued event
+notifications are translated into render-control requests.
+
+## Embedded Control Mode
+
+The command-line program still uses the scripted timeline in `main.cpp`, but a
+calling application can also run the mixer from its own thread:
+
+```cpp
+AudioEngine engine;
+SoundControlQueue control_queue;
+
+std::string error_message;
+engine.LoadCatalog("conf/mock1.yaml", error_message);
+engine.Initialize(error_message);
+
+std::thread mixer_thread(&AudioEngine::Run, &engine, std::ref(control_queue));
+
+control_queue.TryPush({
+    .type = SoundControlMessageType::kPlay,
+    .event_id = SoundId::kMasterCautionSingle,
+});
+control_queue.TryPush({
+    .type = SoundControlMessageType::kStop,
+    .event_id = SoundId::kMasterCautionLoop,
+});
+control_queue.TryPush({
+    .type = SoundControlMessageType::kShutdown,
+});
+
+mixer_thread.join();
+engine.Shutdown();
+```
+
+This queue is intentionally separate from the fixed render-control queue inside
+`AudioEngine`. The host-facing queue lets the application event loop hand off
+messages safely, while the render worker still owns mixer-state changes.
 
 ## Audio Policy
 

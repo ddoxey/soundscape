@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
@@ -25,12 +26,12 @@ constexpr std::string_view kDefaultScriptPath = "conf/script.yml";
 struct ScheduledEvent {
   double at_seconds = 0.0;
   bool stop = false;
-  SoundId id{};
+  SoundEventId event_id{};
   std::string note;
 };
 
-std::string_view SoundName(const AudioEngine& engine, SoundId id) {
-  const SoundDef* def = engine.FindSoundDef(id);
+std::string_view SoundName(const AudioEngine& engine, SoundEventId event_id) {
+  const SoundDef* def = engine.FindSoundDef(event_id);
   if (def != nullptr) {
     return std::string_view(def->name);
   }
@@ -42,7 +43,7 @@ void PrintTimelineEvent(const AudioEngine& engine,
                         const ScheduledEvent& event) {
   std::cout << std::fixed << std::setprecision(1) << "[" << std::setw(5)
             << event.at_seconds << "s] " << (event.stop ? "STOP " : "PLAY ")
-            << SoundName(engine, event.id);
+            << SoundName(engine, event.event_id);
   if (!event.note.empty()) {
     std::cout << "  " << event.note;
   }
@@ -53,7 +54,7 @@ void PrintTriggeredEvent(const AudioEngine& engine, double elapsed_seconds,
                          const ScheduledEvent& event) {
   std::cout << std::fixed << std::setprecision(1) << "[" << std::setw(5)
             << elapsed_seconds << "s] " << (event.stop ? "STOP " : "PLAY ")
-            << SoundName(engine, event.id);
+            << SoundName(engine, event.event_id);
   if (!event.note.empty()) {
     std::cout << "  " << event.note;
   }
@@ -64,11 +65,22 @@ void PrintRejectedEvent(const AudioEngine& engine, double elapsed_seconds,
                         const ScheduledEvent& event) {
   std::cout << std::fixed << std::setprecision(1) << "[" << std::setw(5)
             << elapsed_seconds << "s] "
-            << "REJECT " << SoundName(engine, event.id);
+            << "REJECT " << SoundName(engine, event.event_id);
   if (!event.note.empty()) {
     std::cout << "  " << event.note;
   }
   std::cout << '\n';
+}
+
+/**
+ * @brief Converts a scheduled script event into a host-facing event message.
+ */
+SoundControlMessage BuildControlMessage(const ScheduledEvent& event) {
+  return SoundControlMessage{
+      .type = event.stop ? SoundControlMessageType::kStop
+                         : SoundControlMessageType::kPlay,
+      .event_id = event.event_id,
+  };
 }
 
 /**
@@ -201,7 +213,7 @@ ScheduledEvent ParseScriptEvent(const YAML::Node& node,
   return ScheduledEvent{
       .at_seconds = RequireScriptField(node, "at_seconds", index).as<double>(),
       .stop = action == "stop",
-      .id = sound_id,
+      .event_id = sound_id,
       .note = node["note"] ? node["note"].as<std::string>() : std::string(),
   };
 }
@@ -319,6 +331,10 @@ int main(int argc, char** argv) {
   }
   std::cout << "----\nTriggering events:\n";
 
+  SoundControlQueue control_queue;
+  std::thread control_thread(&AudioEngine::Run, &engine,
+                             std::ref(control_queue));
+
   const auto start = std::chrono::steady_clock::now();
   std::size_t next_event_index = 0;
 
@@ -330,10 +346,7 @@ int main(int argc, char** argv) {
     while (next_event_index < timeline.size() &&
            timeline[next_event_index].at_seconds <= elapsed_seconds) {
       const ScheduledEvent& event = timeline[next_event_index];
-      if (event.stop) {
-        engine.Stop(event.id);
-        PrintTriggeredEvent(engine, elapsed_seconds, event);
-      } else if (engine.Play(event.id)) {
+      if (control_queue.TryPush(BuildControlMessage(event))) {
         PrintTriggeredEvent(engine, elapsed_seconds, event);
       } else {
         PrintRejectedEvent(engine, elapsed_seconds, event);
@@ -348,12 +361,21 @@ int main(int argc, char** argv) {
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
 
-  engine.Stop(SoundId::kAmbient);
-  engine.Stop(SoundId::kEngine);
-  engine.Stop(SoundId::kAirportTower);
-  engine.Stop(SoundId::kThrust1);
+  for (SoundEventId event_id : {SoundId::kAmbient, SoundId::kEngine,
+                                SoundId::kAirportTower, SoundId::kThrust1}) {
+    static_cast<void>(control_queue.TryPush(SoundControlMessage{
+        .type = SoundControlMessageType::kStop,
+        .event_id = event_id,
+    }));
+  }
 
   std::this_thread::sleep_for(std::chrono::milliseconds(150));
+  if (!control_queue.TryPush(SoundControlMessage{
+          .type = SoundControlMessageType::kShutdown,
+      })) {
+    control_queue.Close();
+  }
+  control_thread.join();
   engine.Shutdown();
 
   std::cout << "Demo complete.\n";

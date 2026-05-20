@@ -10,6 +10,7 @@
 #include "mixer.hpp"
 #include "openal_audio_output.hpp"
 #include "sound_catalog_runtime.hpp"
+#include "sound_control_queue.hpp"
 
 /**
  * @brief Public facade for the cockpit soundscape runtime.
@@ -61,6 +62,15 @@ class AudioEngine : public AudioRenderTarget {
    * @brief Stops all active instances of a catalog sound.
    */
   void Stop(SoundId id);
+
+  /**
+   * @brief Runs a blocking host-control event loop.
+   *
+   * The calling application can invoke this method on a dedicated thread and
+   * post SoundControlMessage values to the supplied queue. The loop exits when
+   * it consumes a shutdown message or when the queue is closed and drained.
+   */
+  void Run(SoundControlQueue& control_queue);
 
   /**
    * @brief Finds the loaded catalog definition for a sound id.
