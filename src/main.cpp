@@ -303,10 +303,9 @@ int main(int argc, char** argv) {
   }
 
   if (!engine.Initialize(error_message)) {
-    std::cerr << "Audio initialization failed: " << error_message << '\n'
-              << "Verify that the system has a usable OpenAL output device. "
-                 "On macOS/Linux, prefer OpenAL Soft over platform-default "
-                 "OpenAL when possible.\n";
+    std::cerr << "Audio initialization failed: " << error_message
+              << "\nSet SDL_AUDIODRIVER=dummy to run SDL2 without a real audio "
+                 "device.\n";
     return 1;
   }
 

@@ -8,7 +8,7 @@
 
 #include "audio_asset_manager.hpp"
 #include "mixer.hpp"
-#include "openal_audio_output.hpp"
+#include "sdl_audio_output.hpp"
 #include "sound_catalog_runtime.hpp"
 #include "sound_control_queue.hpp"
 
@@ -16,7 +16,7 @@
  * @brief Public facade for the cockpit soundscape runtime.
  *
  * AudioEngine wires together catalog lookup, asset loading, policy-aware
- * mixing, and the OpenAL output backend. The demo runner uses this class rather
+ * mixing, and the SDL output backend. The demo runner uses this class rather
  * than reaching into the lower-level components directly.
  */
 class AudioEngine : public AudioRenderTarget {
@@ -114,7 +114,7 @@ class AudioEngine : public AudioRenderTarget {
   void Render(float* output, int frame_count) override;
 
   /**
-   * @brief Control operations consumed by the render worker.
+   * @brief Control operations consumed by the render thread.
    */
   enum class ControlCommandType { kPlay, kStop };
 
@@ -122,8 +122,8 @@ class AudioEngine : public AudioRenderTarget {
    * @brief Fixed-size command payload for non-blocking control requests.
    *
    * Play commands carry pointers into the loaded catalog and asset manager.
-   * Those pointers remain valid until Shutdown(), which stops the worker before
-   * releasing assets.
+   * Those pointers remain valid until Shutdown(), which stops audio callbacks
+   * before releasing assets.
    */
   struct ControlCommand {
     ControlCommandType type = ControlCommandType::kStop;
@@ -133,12 +133,12 @@ class AudioEngine : public AudioRenderTarget {
   };
 
   /**
-   * @brief Enqueues one non-blocking control command for the render worker.
+   * @brief Enqueues one non-blocking control command for the render thread.
    */
   [[nodiscard]] bool EnqueueControlCommand(const ControlCommand& command);
 
   /**
-   * @brief Applies all queued control commands on the render worker.
+   * @brief Applies all queued control commands on the render thread.
    */
   void DrainControlCommands();
 
@@ -148,14 +148,14 @@ class AudioEngine : public AudioRenderTarget {
   void ClearControlCommands();
 
   /**
-   * @brief Maximum queued play/stop requests waiting for the render worker.
+   * @brief Maximum queued play/stop requests waiting for the render thread.
    */
   static constexpr std::size_t kControlCommandQueueCapacity = 64;
 
   SoundCatalog catalog_;
   AudioAssetManager assets_;
   Mixer mixer_;
-  OpenAlAudioOutput output_;
+  SdlAudioOutput output_;
   std::array<ControlCommand, kControlCommandQueueCapacity> control_commands_{};
   std::atomic_size_t control_write_index_ = 0;
   std::atomic_size_t control_read_index_ = 0;

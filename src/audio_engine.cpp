@@ -121,7 +121,7 @@ void AudioEngine::Render(float* output, int frame_count) {
 
 bool AudioEngine::EnqueueControlCommand(const ControlCommand& command) {
   // Single-producer/single-consumer ring buffer: control calls produce
-  // commands, and the render worker consumes them before mixing each audio
+  // commands, and the render thread consumes them before mixing each audio
   // chunk.
   const std::size_t write_index =
       control_write_index_.load(std::memory_order_relaxed);

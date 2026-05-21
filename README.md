@@ -46,7 +46,7 @@ at all when a more urgent warning is already claiming attention.
     |-- audio_types.hpp
     |-- main.cpp
     |-- mixer.*
-    |-- openal_audio_output.*
+    |-- sdl_audio_output.*
     |-- sound_catalog_runtime.*
     |-- sound_control_queue.*
     `-- sound_policy.*
@@ -112,7 +112,7 @@ selected aircraft catalog and selected script.
 
 Provides the public facade used by the demo.
 
-It owns the catalog, asset manager, mixer, and OpenAL output backend, but
+It owns the catalog, asset manager, mixer, and SDL output backend, but
 delegates the detailed responsibilities to those smaller runtime components.
 
 ### `src/audio_asset_manager.*`
@@ -132,7 +132,7 @@ Key details:
 
 - active voices are stored in a fixed-size pool
 - the render path avoids dynamic allocation and container resizing
-- render-control requests use a fixed-size queue consumed by the render worker
+- render-control requests use a fixed-size queue consumed by the render thread
 - active sounds are mixed in real time with sample clamping
 - short gain ramps are applied to avoid abrupt gain jumps
 
@@ -145,20 +145,19 @@ Key details:
 - priority-based ducking is evaluated from the active voice list
 - playback can be refused for sounds marked `drop_if_higher_priority_active`
 
-### `src/openal_audio_output.*`
+### `src/sdl_audio_output.*`
 
 Provides the playback backend.
 
 Key details:
 
-- OpenAL Soft owns the playback device and queued streaming buffers
-- a small worker thread asks the mixer for chunks of audio and keeps the OpenAL
-  source fed
-- internal float samples are converted to stereo 16-bit PCM before queueing
+- SDL2 owns the playback device and audio callback thread
+- the callback asks the mixer for interleaved stereo float samples
+- the device is opened as `48 kHz`, stereo, `AUDIO_F32SYS`
 
-The OpenAL worker drains queued render-control requests before each mix pass.
+The SDL audio callback drains queued render-control requests before each mix pass.
 `Play` reports whether the request was queued, while suppression/drop policy is
-applied later by the render worker.
+applied later by the render thread.
 
 ### `src/sound_control_queue.*`
 
@@ -185,7 +184,7 @@ happened:
 - `REJECT` means the event notification could not be queued
 
 Event actions are resolved by `AudioEngine::Run()`. Suppression policy is
-applied later by the render worker after play actions are translated into
+applied later by the render thread after play actions are translated into
 render-control requests.
 
 ## Embedded Control Mode
@@ -221,7 +220,7 @@ engine.Shutdown();
 
 This queue is intentionally separate from the fixed render-control queue inside
 `AudioEngine`. The host-facing queue lets the application event loop hand off
-messages safely, while the render worker still owns mixer-state changes.
+messages safely, while the render thread still owns mixer-state changes.
 
 ## Audio Policy
 
@@ -267,14 +266,14 @@ Requirements:
 
 - CMake 3.20+
 - a C++20 compiler
-- OpenAL Soft
+- SDL2
 - `libsndfile`
 - `yaml-cpp`
 
 On Ubuntu:
 
 ```bash
-sudo apt install libopenal-dev libsndfile1-dev libyaml-cpp-dev
+sudo apt install libsdl2-dev libsndfile1-dev libyaml-cpp-dev
 ```
 
 Build:
@@ -325,7 +324,7 @@ Validate a catalog and script without initializing audio or loading WAV assets:
 Headless or sandboxed run without a real audio device:
 
 ```bash
-ALSOFT_DRIVERS=null ./build/cockpit_soundscape --config conf/mock1.yaml --script conf/script.yml 24
+SDL_AUDIODRIVER=dummy ./build/cockpit_soundscape --config conf/mock1.yaml --script conf/script.yml 24
 ```
 
 ## Notes

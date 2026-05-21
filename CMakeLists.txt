@@ -9,18 +9,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 find_package(yaml-cpp REQUIRED)
-pkg_check_modules(OPENAL_PKG QUIET IMPORTED_TARGET openal)
+pkg_check_modules(SDL2 REQUIRED sdl2)
 pkg_check_modules(SNDFILE REQUIRED sndfile)
-
-if(OPENAL_PKG_FOUND)
-    set(OPENAL_TARGET PkgConfig::OPENAL_PKG)
-    set(OPENAL_INCLUDE_DIRS ${OPENAL_PKG_INCLUDE_DIRS})
-    set(OPENAL_COMPILE_OPTIONS ${OPENAL_PKG_CFLAGS_OTHER})
-else()
-    find_package(OpenAL REQUIRED)
-    set(OPENAL_INCLUDE_DIRS ${OPENAL_INCLUDE_DIR})
-    set(OPENAL_TARGET ${OPENAL_LIBRARY})
-endif()
 
 if(TARGET yaml-cpp::yaml-cpp)
     set(YAML_CPP_TARGET yaml-cpp::yaml-cpp)
@@ -35,7 +25,7 @@ add_executable(cockpit_soundscape
     src/audio_engine.cpp
     src/mixer.cpp
     src/main.cpp
-    src/openal_audio_output.cpp
+    src/sdl_audio_output.cpp
     src/sound_catalog_runtime.cpp
     src/sound_control_queue.cpp
     src/sound_policy.cpp
@@ -43,24 +33,25 @@ add_executable(cockpit_soundscape
 
 target_include_directories(cockpit_soundscape PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${OPENAL_INCLUDE_DIRS}
+    ${SDL2_INCLUDE_DIRS}
     ${SNDFILE_INCLUDE_DIRS}
     ${YAML_CPP_INCLUDE_DIR}
     ${YAML_CPP_INCLUDE_DIRS}
 )
 
 target_compile_options(cockpit_soundscape PRIVATE
-    ${OPENAL_COMPILE_OPTIONS}
+    ${SDL2_CFLAGS_OTHER}
     ${SNDFILE_CFLAGS_OTHER}
     $<$<PLATFORM_ID:Darwin>:-Wno-deprecated-declarations>
 )
 
 target_link_directories(cockpit_soundscape PRIVATE
+    ${SDL2_LIBRARY_DIRS}
     ${SNDFILE_LIBRARY_DIRS}
 )
 
 target_link_libraries(cockpit_soundscape PRIVATE
-    ${OPENAL_TARGET}
+    ${SDL2_LIBRARIES}
     ${SNDFILE_LIBRARIES}
     Threads::Threads
     ${YAML_CPP_TARGET}
