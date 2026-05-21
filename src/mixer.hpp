@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 
 #include "audio_types.hpp"
 #include "sound_policy.hpp"
@@ -49,4 +50,5 @@ class Mixer {
 
   SoundPolicyEngine policy_;
   std::array<SoundInstance, kMaxActiveVoices> active_instances_{};
+  std::uint64_t mix_count_ = 0;
 };

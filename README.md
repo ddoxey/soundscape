@@ -327,6 +327,15 @@ Headless or sandboxed run without a real audio device:
 SDL_AUDIODRIVER=dummy ./build/cockpit_soundscape --config conf/mock1.yaml --script conf/script.yml 24
 ```
 
+Enable diagnostic logging for the audio/event path:
+
+```bash
+SOUNDSCAPE_DEBUG=1 ./build/cockpit_soundscape --config conf/mock1.yaml --script conf/script.yml 10
+```
+
+The diagnostic log reports SDL device setup and callback activity, event action
+resolution, render-control queue decisions, and mixer voice activity.
+
 ## Notes
 
 - The sound gains and some loop choices are still POC tuning values, not final

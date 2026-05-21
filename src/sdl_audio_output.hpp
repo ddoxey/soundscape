@@ -2,6 +2,7 @@
 
 #include <SDL.h>
 
+#include <atomic>
 #include <string>
 
 #include "audio_types.hpp"
@@ -58,5 +59,6 @@ class SdlAudioOutput {
 
   SDL_AudioDeviceID device_id_ = 0;
   AudioRenderTarget* render_target_ = nullptr;
+  std::atomic_uint64_t callback_count_ = 0;
   bool sdl_audio_initialized_ = false;
 };

@@ -46,7 +46,7 @@ struct SoundInstance {
   float current_gain = 1.0f;
   float target_gain = 1.0f;
   bool loop = false;
-  bool active = true;
+  bool active = false;
   SoundPriority priority = SoundPriority::kNormal;
   bool duck_others = false;
 };

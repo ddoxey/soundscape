@@ -2,9 +2,38 @@
 
 #include <algorithm>
 #include <cmath>
+#include <sstream>
+
+#include "debug_log.hpp"
+
+namespace {
+
+/**
+ * @brief Counts active voice slots that contain a decoded buffer.
+ */
+template <std::size_t kInstanceCount>
+std::size_t ActiveVoiceCount(
+    const std::array<SoundInstance, kInstanceCount>& instances) {
+  return static_cast<std::size_t>(std::count_if(
+      instances.begin(), instances.end(), [](const SoundInstance& instance) {
+        return instance.active && instance.buffer != nullptr;
+      }));
+}
+
+/**
+ * @brief Limits periodic mix callback logging to startup and powers of two.
+ */
+bool ShouldLogMixCount(std::uint64_t mix_count) {
+  return mix_count <= 5 || (mix_count & (mix_count - 1)) == 0;
+}
+
+}  // namespace
 
 bool Mixer::Play(const SoundDef& def, const SoundBuffer& buffer) {
   if (!policy_.CanStart(def, active_instances_)) {
+    std::ostringstream log;
+    log << "mixer play rejected by policy: sound=" << def.name;
+    debug_log::Write(log.str());
     return false;
   }
 
@@ -14,6 +43,9 @@ bool Mixer::Play(const SoundDef& def, const SoundBuffer& buffer) {
     for (SoundInstance& instance : active_instances_) {
       if (instance.active && instance.id == def.id && instance.loop) {
         instance.target_gain = instance.base_gain;
+        std::ostringstream log;
+        log << "mixer refreshed loop: sound=" << def.name;
+        debug_log::Write(log.str());
         return true;
       }
     }
@@ -36,19 +68,39 @@ bool Mixer::Play(const SoundDef& def, const SoundBuffer& buffer) {
         .priority = def.priority,
         .duck_others = def.duck_others,
     };
+    if (debug_log::Enabled()) {
+      std::ostringstream log;
+      log << "mixer started voice: sound=" << def.name
+          << " active_voices=" << ActiveVoiceCount(active_instances_)
+          << " frames=" << buffer.FrameCount()
+          << " loop=" << (def.loop ? "true" : "false") << " gain=" << def.gain;
+      debug_log::Write(log.str());
+    }
     return true;
   }
 
   // Refuse playback when the fixed pool is full. This keeps the render path
   // allocation-free and makes capacity limits explicit.
+  std::ostringstream log;
+  log << "mixer play rejected: voice pool full for sound=" << def.name;
+  debug_log::Write(log.str());
   return false;
 }
 
 void Mixer::Stop(SoundId id) {
+  std::size_t stopped_count = 0;
   for (SoundInstance& instance : active_instances_) {
     if (instance.id == id) {
+      if (instance.active) {
+        ++stopped_count;
+      }
       instance.active = false;
     }
+  }
+  if (debug_log::Enabled()) {
+    std::ostringstream log;
+    log << "mixer stopped voices: count=" << stopped_count;
+    debug_log::Write(log.str());
   }
 }
 
@@ -59,9 +111,18 @@ void Mixer::Clear() {
 }
 
 void Mixer::Mix(float* output, int frame_count) {
+  ++mix_count_;
   std::fill(output,
             output + static_cast<std::size_t>(frame_count) * kOutputChannels,
             0.0f);
+
+  if (debug_log::Enabled() && ShouldLogMixCount(mix_count_)) {
+    std::ostringstream log;
+    log << "mixer mix callback: count=" << mix_count_
+        << " active_voices=" << ActiveVoiceCount(active_instances_)
+        << " frame_count=" << frame_count;
+    debug_log::Write(log.str());
+  }
 
   // Gain changes are ramped over a short window to avoid clicks when ducking
   // turns on/off or when loops are stopped.

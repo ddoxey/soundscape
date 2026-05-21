@@ -1,7 +1,22 @@
 #include "sdl_audio_output.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <sstream>
+
+#include "debug_log.hpp"
+
+namespace {
+
+/**
+ * @brief Limits callback logging to startup and powers of two.
+ */
+bool ShouldLogCallback(std::uint64_t callback_count) {
+  return callback_count <= 5 || (callback_count & (callback_count - 1)) == 0;
+}
+
+}  // namespace
 
 SdlAudioOutput::~SdlAudioOutput() { Shutdown(); }
 
@@ -42,12 +57,24 @@ bool SdlAudioOutput::Initialize(AudioRenderTarget& render_target,
     return false;
   }
 
+  if (debug_log::Enabled()) {
+    std::ostringstream log;
+    log << "SDL audio opened: device_id=" << device_id_
+        << " freq=" << obtained.freq
+        << " channels=" << static_cast<int>(obtained.channels)
+        << " samples=" << obtained.samples << " format=0x" << std::hex
+        << obtained.format;
+    debug_log::Write(log.str());
+  }
+
   SDL_PauseAudioDevice(device_id_, 0);
+  debug_log::Write("SDL audio device unpaused");
   return true;
 }
 
 void SdlAudioOutput::Shutdown() {
   if (device_id_ != 0) {
+    debug_log::Write("SDL audio device closing");
     SDL_PauseAudioDevice(device_id_, 1);
     SDL_CloseAudioDevice(device_id_);
     device_id_ = 0;
@@ -76,6 +103,15 @@ void SdlAudioOutput::AudioCallback(void* user_data, Uint8* stream,
       byte_count / static_cast<int>(sizeof(float) * kOutputChannels);
   const int rendered_byte_count =
       frame_count * static_cast<int>(sizeof(float) * kOutputChannels);
+  const std::uint64_t callback_count =
+      output->callback_count_.fetch_add(1, std::memory_order_relaxed) + 1;
+  if (debug_log::Enabled() && ShouldLogCallback(callback_count)) {
+    std::ostringstream log;
+    log << "SDL audio callback count=" << callback_count
+        << " byte_count=" << byte_count << " frame_count=" << frame_count;
+    debug_log::Write(log.str());
+  }
+
   float* samples = reinterpret_cast<float*>(stream);
   output->render_target_->Render(samples, frame_count);
 

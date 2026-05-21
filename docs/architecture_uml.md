@@ -56,11 +56,10 @@ class SoundPolicyEngine {
   +DuckFactorFor(target_priority, active_instances) float
 }
 
-class OpenAlAudioOutput {
+class SdlAudioOutput {
   +Initialize(render_target, error) bool
   +Shutdown()
-  -WorkerLoop()
-  -FillBuffer(buffer_id, error) bool
+  -AudioCallback(user_data, stream, byte_count)
 }
 
 class AudioRenderTarget {
@@ -90,13 +89,13 @@ AudioEngine ..|> AudioRenderTarget
 AudioEngine --> SoundCatalog : owns
 AudioEngine --> AudioAssetManager : owns
 AudioEngine --> Mixer : owns
-AudioEngine --> OpenAlAudioOutput : owns
+AudioEngine --> SdlAudioOutput : owns
 AudioEngine --> SoundControlQueue : consumes
 SoundCatalog --> SoundCatalogYaml : parses
 AudioAssetManager --> SoundCatalog : loads definitions from
 AudioAssetManager --> WavAssets : decodes
 Mixer --> SoundPolicyEngine : evaluates policy
-OpenAlAudioOutput --> AudioRenderTarget : pulls audio frames
+SdlAudioOutput --> AudioRenderTarget : pulls audio frames
 ```
 
 ## Core Class Diagram
@@ -165,7 +164,7 @@ class AudioEngine {
   -SoundCatalog catalog_
   -AudioAssetManager assets_
   -Mixer mixer_
-  -OpenAlAudioOutput output_
+  -SdlAudioOutput output_
   -array~ControlCommand, 64~ control_commands_
 }
 
@@ -178,7 +177,7 @@ Mixer --> SoundPolicyEngine
 AudioEngine *-- SoundCatalog
 AudioEngine *-- AudioAssetManager
 AudioEngine *-- Mixer
-AudioEngine *-- OpenAlAudioOutput
+AudioEngine *-- SdlAudioOutput
 SoundInstance --> SoundBuffer : references
 ```
 
@@ -193,7 +192,7 @@ participant Queue as SoundControlQueue
 participant Engine as AudioEngine
 participant Catalog as SoundCatalog
 participant Assets as AudioAssetManager
-participant Output as OpenAlAudioOutput
+participant Output as SdlAudioOutput
 participant Mixer as Mixer
 participant Policy as SoundPolicyEngine
 
@@ -203,7 +202,7 @@ Engine->>Assets: LoadCatalog(catalog)
 Assets-->>Engine: decoded SoundBuffer objects
 Host->>Engine: Initialize()
 Engine->>Output: Initialize(*this)
-Output->>Engine: Render(output, frame_count) on worker thread
+Output->>Engine: Render(output, frame_count) on SDL audio callback
 Engine->>Mixer: Mix(output, frame_count)
 
 Host->>Queue: TryPush(kNotify, event_id)
@@ -228,7 +227,7 @@ Mixer->>Policy: CanStart() / DuckFactorFor()
 Policy-->>Mixer: start allowed + duck factor
 Mixer-->>Engine: mixed stereo float frames
 Engine-->>Output: interleaved float buffer
-Output->>Output: convert to PCM16 and queue OpenAL buffers
+Output->>Output: SDL device consumes stereo float samples
 ```
 
 ## Threading / Runtime View
@@ -244,12 +243,12 @@ flowchart LR
     D --> E["EnqueueControlCommand()"]
   end
 
-  subgraph AudioThread["OpenAlAudioOutput Worker"]
-    F["WorkerLoop()"] --> G["AudioEngine::Render()"]
+  subgraph AudioThread["SDL Audio Callback Thread"]
+    F["SdlAudioOutput::AudioCallback()"] --> G["AudioEngine::Render()"]
     G --> H["DrainControlCommands()"]
     H --> I["Mixer::Play()/Stop()"]
     I --> J["Mixer::Mix()"]
-    J --> K["PCM conversion + OpenAL queue"]
+    J --> K["SDL device float buffer"]
   end
 
   B --> C
@@ -266,5 +265,5 @@ flowchart LR
 - `Mixer` owns active playback state and stays allocation-free during mix.
 - `SoundPolicyEngine` decides suppression and ducking independently of the audio
   backend.
-- `OpenAlAudioOutput` pulls audio from `AudioRenderTarget` rather than pushing
-  callbacks into `Mixer` directly.
+- `SdlAudioOutput` pulls audio from `AudioRenderTarget` in the SDL callback
+  rather than pushing callbacks into `Mixer` directly.
