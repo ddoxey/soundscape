@@ -1,85 +1,68 @@
 events:
   - at_seconds: 0.0
-    action: play
-    sound: ambient
+    event: ambient_bed
     note: background loop
 
   - at_seconds: 0.0
-    action: play
-    sound: engine
+    event: engine_bed
     note: background loop
 
   - at_seconds: 0.0
-    action: play
-    sound: thrust1
+    event: thrust_texture
     note: background texture loop
 
   - at_seconds: 0.0
-    action: play
-    sound: airport_tower
+    event: tower_chatter
     note: tower chatter bed
 
   - at_seconds: 6.0
-    action: play
-    sound: airplane_ping
+    event: airplane_ping_requested
     note: normal event; no ducking
 
   - at_seconds: 10.0
-    action: play
-    sound: autopilot_disconnect_modern
+    event: autopilot_disconnect
     note: alert; ducks background and normal sounds
 
   - at_seconds: 14.0
-    action: play
-    sound: master_caution_single
+    event: master_caution_single
     note: alert; stacks with other alerts
 
   - at_seconds: 18.0
-    action: play
-    sound: master_caution_loop
+    event: master_caution_loop
     note: sustained alert loop
 
   - at_seconds: 22.0
-    action: play
-    sound: terrain_pull_up_gws
+    event: terrain_pull_up
     note: critical; ducks alerts to 70%, normal to 50%, background to 35%
 
   - at_seconds: 22.0
-    action: play
-    sound: autopilot_disconnect_modern_variant
+    event: autopilot_disconnect_suppression_demo
     note: suppressed because a critical warning is already active
 
   - at_seconds: 30.0
-    action: play
-    sound: windshear
+    event: windshear
     note: critical warning; equal priority with pull-up, no mutual ducking
 
   - at_seconds: 38.0
-    action: stop
-    sound: master_caution_loop
+    event: master_caution_cleared
     note: clear sustained alert loop
 
   - at_seconds: 42.0
-    action: play
-    sound: flight_attendant_single
+    event: flight_attendant_chime
     note: normal event; should stay under any active warnings
 
   - at_seconds: 46.0
-    action: play
-    sound: bingo_low_fuel_f16
+    event: bingo_low_fuel
     note: alert event
 
   - at_seconds: 50.0
-    action: play
-    sound: autopilot_disconnect_classic_boeing
+    event: autopilot_disconnect_classic
     note: alert reprise with alternate source
 
   - at_seconds: 54.0
-    action: play
-    sound: bank_angle
+    event: bank_angle
     note: critical pulse
 
   - at_seconds: 57.0
-    action: play
-    sound: overspeed_clacker
+    event: overspeed
     note: critical clacker near program end

@@ -25,13 +25,12 @@ constexpr std::string_view kDefaultScriptPath = "conf/script.yml";
  */
 struct ScheduledEvent {
   double at_seconds = 0.0;
-  bool stop = false;
   SoundEventId event_id{};
   std::string note;
 };
 
-std::string_view SoundName(const AudioEngine& engine, SoundEventId event_id) {
-  const SoundDef* def = engine.FindSoundDef(event_id);
+std::string_view EventName(const AudioEngine& engine, SoundEventId event_id) {
+  const EventDef* def = engine.FindEventDef(event_id);
   if (def != nullptr) {
     return std::string_view(def->name);
   }
@@ -42,8 +41,8 @@ std::string_view SoundName(const AudioEngine& engine, SoundEventId event_id) {
 void PrintTimelineEvent(const AudioEngine& engine,
                         const ScheduledEvent& event) {
   std::cout << std::fixed << std::setprecision(1) << "[" << std::setw(5)
-            << event.at_seconds << "s] " << (event.stop ? "STOP " : "PLAY ")
-            << SoundName(engine, event.event_id);
+            << event.at_seconds << "s] EVENT "
+            << EventName(engine, event.event_id);
   if (!event.note.empty()) {
     std::cout << "  " << event.note;
   }
@@ -53,8 +52,8 @@ void PrintTimelineEvent(const AudioEngine& engine,
 void PrintTriggeredEvent(const AudioEngine& engine, double elapsed_seconds,
                          const ScheduledEvent& event) {
   std::cout << std::fixed << std::setprecision(1) << "[" << std::setw(5)
-            << elapsed_seconds << "s] " << (event.stop ? "STOP " : "PLAY ")
-            << SoundName(engine, event.event_id);
+            << elapsed_seconds << "s] EVENT "
+            << EventName(engine, event.event_id);
   if (!event.note.empty()) {
     std::cout << "  " << event.note;
   }
@@ -65,7 +64,7 @@ void PrintRejectedEvent(const AudioEngine& engine, double elapsed_seconds,
                         const ScheduledEvent& event) {
   std::cout << std::fixed << std::setprecision(1) << "[" << std::setw(5)
             << elapsed_seconds << "s] "
-            << "REJECT " << SoundName(engine, event.event_id);
+            << "REJECT " << EventName(engine, event.event_id);
   if (!event.note.empty()) {
     std::cout << "  " << event.note;
   }
@@ -77,8 +76,7 @@ void PrintRejectedEvent(const AudioEngine& engine, double elapsed_seconds,
  */
 SoundControlMessage BuildControlMessage(const ScheduledEvent& event) {
   return SoundControlMessage{
-      .type = event.stop ? SoundControlMessageType::kStop
-                         : SoundControlMessageType::kPlay,
+      .type = SoundControlMessageType::kNotify,
       .event_id = event.event_id,
   };
 }
@@ -98,7 +96,11 @@ struct RuntimeOptions {
 /**
  * @brief Parses a positive floating-point duration.
  */
-bool TryParsePositiveDouble(std::string_view text, double& value) {
+bool TryParsePositiveDouble(std::string_view text, double* value) {
+  if (value == nullptr) {
+    return false;
+  }
+
   std::string owned_text(text);
   char* parse_end = nullptr;
   const double parsed_value = std::strtod(owned_text.c_str(), &parse_end);
@@ -107,7 +109,7 @@ bool TryParsePositiveDouble(std::string_view text, double& value) {
     return false;
   }
 
-  value = parsed_value;
+  *value = parsed_value;
   return true;
 }
 
@@ -157,7 +159,7 @@ RuntimeOptions ParseOptions(int argc, char** argv) {
     }
 
     double parsed_duration = 0.0;
-    if (TryParsePositiveDouble(argument, parsed_duration)) {
+    if (TryParsePositiveDouble(argument, &parsed_duration)) {
       options.duration_seconds = parsed_duration;
     } else {
       options.catalog_path = argument;
@@ -189,31 +191,23 @@ YAML::Node RequireScriptField(const YAML::Node& node, std::string_view field,
 ScheduledEvent ParseScriptEvent(const YAML::Node& node,
                                 const SoundCatalog& catalog,
                                 std::size_t index) {
-  const std::string action =
-      RequireScriptField(node, "action", index).as<std::string>();
-  if (action != "play" && action != "stop") {
+  const std::string event =
+      RequireScriptField(node, "event", index).as<std::string>();
+  EventId event_id{};
+  if (!TryParseEventId(event, &event_id)) {
     throw std::runtime_error("script event " + std::to_string(index) +
-                             " has unknown action '" + action + "'");
+                             " has unknown event id '" + event + "'");
   }
 
-  const std::string sound =
-      RequireScriptField(node, "sound", index).as<std::string>();
-  SoundId sound_id{};
-  if (!TryParseSoundId(sound, sound_id)) {
+  if (catalog.ResolveEventActions(event_id).empty()) {
     throw std::runtime_error("script event " + std::to_string(index) +
-                             " has unknown sound id '" + sound + "'");
-  }
-
-  if (catalog.Find(sound_id) == nullptr) {
-    throw std::runtime_error("script event " + std::to_string(index) +
-                             " references sound id '" + sound +
+                             " references event id '" + event +
                              "' that is not present in the selected catalog");
   }
 
   return ScheduledEvent{
       .at_seconds = RequireScriptField(node, "at_seconds", index).as<double>(),
-      .stop = action == "stop",
-      .event_id = sound_id,
+      .event_id = event_id,
       .note = node["note"] ? node["note"].as<std::string>() : std::string(),
   };
 }
@@ -273,7 +267,8 @@ int ValidateConfiguration(const RuntimeOptions& options) {
   }
 
   std::cout << "Catalog validation succeeded for " << options.catalog_path
-            << " (" << catalog.All().size() << " sounds).\n";
+            << " (" << catalog.All().size() << " sounds, "
+            << catalog.Events().size() << " events).\n";
   std::cout << "Script validation succeeded for " << options.script_path << " ("
             << timeline.size() << " events).\n";
   return 0;
@@ -361,10 +356,11 @@ int main(int argc, char** argv) {
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
 
-  for (SoundEventId event_id : {SoundId::kAmbient, SoundId::kEngine,
-                                SoundId::kAirportTower, SoundId::kThrust1}) {
+  for (SoundEventId event_id :
+       {EventId::kAmbientBedCleared, EventId::kEngineBedCleared,
+        EventId::kTowerChatterCleared, EventId::kThrustTextureCleared}) {
     static_cast<void>(control_queue.TryPush(SoundControlMessage{
-        .type = SoundControlMessageType::kStop,
+        .type = SoundControlMessageType::kNotify,
         .event_id = event_id,
     }));
   }

@@ -8,14 +8,14 @@
 #include "sound_catalog.hpp"
 
 /**
- * @brief Stable host-facing event id mapped to one sound inventory entry.
+ * @brief Stable host-facing event id mapped through the aircraft catalog.
  */
-using SoundEventId = SoundId;
+using SoundEventId = EventId;
 
 /**
  * @brief Host-facing event notification type for the mixer runtime loop.
  */
-enum class SoundControlMessageType { kPlay, kStop, kShutdown };
+enum class SoundControlMessageType { kNotify, kShutdown };
 
 /**
  * @brief One host-facing event notification consumed by AudioEngine::Run().

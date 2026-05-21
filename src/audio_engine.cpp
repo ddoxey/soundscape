@@ -41,6 +41,25 @@ bool AudioEngine::Play(SoundId id) {
   });
 }
 
+bool AudioEngine::PlayEvent(EventId id) {
+  bool queued_any_action = false;
+  bool queued_all_actions = true;
+  for (const SoundAction& action : catalog_.ResolveEventActions(id)) {
+    if (action.type != SoundActionType::kPlay) {
+      continue;
+    }
+
+    queued_any_action = true;
+    queued_all_actions = Play(action.sound_id) && queued_all_actions;
+  }
+
+  if (!queued_any_action) {
+    return false;
+  }
+
+  return queued_all_actions;
+}
+
 void AudioEngine::Stop(SoundId id) {
   static_cast<void>(EnqueueControlCommand(ControlCommand{
       .type = ControlCommandType::kStop,
@@ -48,15 +67,35 @@ void AudioEngine::Stop(SoundId id) {
   }));
 }
 
+void AudioEngine::StopEvent(EventId id) {
+  for (const SoundAction& action : catalog_.ResolveEventActions(id)) {
+    if (action.type == SoundActionType::kStop) {
+      Stop(action.sound_id);
+    }
+  }
+}
+
+bool AudioEngine::ApplyEvent(EventId id) {
+  bool accepted_any_action = false;
+  bool accepted_all_actions = true;
+  for (const SoundAction& action : catalog_.ResolveEventActions(id)) {
+    accepted_any_action = true;
+    if (action.type == SoundActionType::kPlay) {
+      accepted_all_actions = Play(action.sound_id) && accepted_all_actions;
+    } else if (action.type == SoundActionType::kStop) {
+      Stop(action.sound_id);
+    }
+  }
+
+  return accepted_any_action && accepted_all_actions;
+}
+
 void AudioEngine::Run(SoundControlQueue& control_queue) {
   SoundControlMessage message;
   while (control_queue.WaitAndPop(&message)) {
     switch (message.type) {
-      case SoundControlMessageType::kPlay:
-        static_cast<void>(Play(message.event_id));
-        break;
-      case SoundControlMessageType::kStop:
-        Stop(message.event_id);
+      case SoundControlMessageType::kNotify:
+        static_cast<void>(ApplyEvent(message.event_id));
         break;
       case SoundControlMessageType::kShutdown:
         control_queue.Close();
@@ -66,6 +105,10 @@ void AudioEngine::Run(SoundControlQueue& control_queue) {
 }
 
 const SoundDef* AudioEngine::FindSoundDef(SoundId id) const noexcept {
+  return catalog_.Find(id);
+}
+
+const EventDef* AudioEngine::FindEventDef(EventId id) const noexcept {
   return catalog_.Find(id);
 }
 

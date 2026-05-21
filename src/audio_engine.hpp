@@ -59,9 +59,29 @@ class AudioEngine : public AudioRenderTarget {
   [[nodiscard]] bool Play(SoundId id);
 
   /**
+   * @brief Applies configured play actions for an event.
+   *
+   * @return true if every configured play request was queued; false if the
+   * event had no play actions or any request could not be queued.
+   */
+  [[nodiscard]] bool PlayEvent(EventId id);
+
+  /**
    * @brief Stops all active instances of a catalog sound.
    */
   void Stop(SoundId id);
+
+  /**
+   * @brief Applies configured stop actions for an event.
+   */
+  void StopEvent(EventId id);
+
+  /**
+   * @brief Applies all configured sound actions for an event.
+   *
+   * @return true when every configured action was accepted.
+   */
+  [[nodiscard]] bool ApplyEvent(EventId id);
 
   /**
    * @brief Runs a blocking host-control event loop.
@@ -76,6 +96,11 @@ class AudioEngine : public AudioRenderTarget {
    * @brief Finds the loaded catalog definition for a sound id.
    */
   [[nodiscard]] const SoundDef* FindSoundDef(SoundId id) const noexcept;
+
+  /**
+   * @brief Finds the loaded event mapping for an event id.
+   */
+  [[nodiscard]] const EventDef* FindEventDef(EventId id) const noexcept;
 
   /**
    * @brief Returns the loaded catalog.

@@ -169,3 +169,144 @@ sounds:
     priority: critical
     duck_others: true
     drop_if_higher_priority_active: false
+
+events:
+  - id: ambient_bed
+    name: Ambient Bed
+    actions:
+      - type: play
+        sound: ambient
+
+  - id: ambient_bed_cleared
+    name: Ambient Bed Cleared
+    actions:
+      - type: stop
+        sound: ambient
+
+  - id: engine_bed
+    name: Engine Bed
+    actions:
+      - type: play
+        sound: engine
+
+  - id: engine_bed_cleared
+    name: Engine Bed Cleared
+    actions:
+      - type: stop
+        sound: engine
+
+  - id: thrust_texture
+    name: Thrust Texture
+    actions:
+      - type: play
+        sound: thrust1
+
+  - id: thrust_texture_cleared
+    name: Thrust Texture Cleared
+    actions:
+      - type: stop
+        sound: thrust1
+
+  - id: tower_chatter
+    name: Tower Chatter
+    actions:
+      - type: play
+        sound: airport_tower
+
+  - id: tower_chatter_cleared
+    name: Tower Chatter Cleared
+    actions:
+      - type: stop
+        sound: airport_tower
+
+  - id: airplane_ping_requested
+    name: Airplane Ping Requested
+    actions:
+      - type: play
+        sound: airplane_ping
+
+  - id: autopilot_disconnect
+    name: Autopilot Disconnect
+    actions:
+      - type: play
+        sound: autopilot_disconnect_modern
+
+  - id: master_caution_single
+    name: Master Caution Single
+    actions:
+      - type: play
+        sound: master_caution_single
+
+  - id: master_caution_loop
+    name: Master Caution Loop
+    actions:
+      - type: play
+        sound: master_caution_loop
+
+  - id: terrain_pull_up
+    name: Terrain Pull Up
+    actions:
+      - type: play
+        sound: terrain_pull_up_gws
+
+  - id: autopilot_disconnect_suppression_demo
+    name: Autopilot Disconnect Suppression Demo
+    actions:
+      - type: play
+        sound: autopilot_disconnect_modern_variant
+
+  - id: windshear
+    name: Windshear
+    actions:
+      - type: play
+        sound: windshear
+
+  - id: master_caution_cleared
+    name: Master Caution Cleared
+    actions:
+      - type: stop
+        sound: master_caution_loop
+
+  - id: flight_attendant_chime
+    name: Flight Attendant Chime
+    actions:
+      - type: play
+        sound: flight_attendant_single
+
+  - id: bingo_low_fuel
+    name: Bingo Low Fuel
+    actions:
+      - type: play
+        sound: bingo_low_fuel_f16
+
+  - id: autopilot_disconnect_classic
+    name: Autopilot Disconnect Classic
+    actions:
+      - type: play
+        sound: autopilot_disconnect_classic_boeing
+
+  - id: bank_angle
+    name: Bank Angle
+    actions:
+      - type: play
+        sound: bank_angle
+
+  - id: overspeed
+    name: Overspeed
+    actions:
+      - type: play
+        sound: overspeed_clacker
+
+  - id: loss_of_cabin_pressure
+    name: Loss Of Cabin Pressure
+    actions:
+      - type: play
+        sound: configuration_warning_classic_boeing
+      - type: play
+        sound: master_caution_loop
+
+  - id: improper_takeoff_configuration
+    name: Improper Takeoff Configuration
+    actions:
+      - type: play
+        sound: configuration_warning_classic_boeing

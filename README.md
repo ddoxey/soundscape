@@ -71,9 +71,10 @@ Each `SoundDef` includes:
 
 ### `conf/mock1.yaml`
 
-Defines the default aircraft-specific runtime sound catalog.
+Defines the default aircraft-specific runtime sound and event catalog.
 
-Aircraft catalog files own the configurable sound dynamics for the POC:
+Aircraft catalog files own the configurable sound dynamics for the POC. The
+`sounds:` section defines concrete WAV-backed sounds:
 
 - display names
 - WAV file paths
@@ -83,8 +84,14 @@ Aircraft catalog files own the configurable sound dynamics for the POC:
 - ducking flags
 - suppression flags
 
-The catalog is loaded and validated at startup. The `id` values are stable keys
-that map to the `SoundId` enum used by the demo script.
+The `events:` section defines cockpit events and maps each event to one or more
+sound actions. More than one event can reference the same sound, and one event
+can perform several actions; for example, `loss_of_cabin_pressure` starts both
+the configuration warning horn and the master caution loop, while
+`improper_takeoff_configuration` starts the same warning horn by itself.
+
+The catalog is loaded and validated at startup. Sound `id` values map to
+`SoundId`, while event `id` values map to `EventId`.
 
 `conf/mock1.yaml` is the default catalog when the user does not specify one.
 
@@ -95,8 +102,7 @@ Defines the default scripted demo timeline.
 Each event includes:
 
 - `at_seconds`
-- `action`: `play` or `stop`
-- `sound`: a stable sound id from the selected aircraft catalog
+- `event`: a stable cockpit event id from the selected aircraft catalog
 - `note`: optional event log text
 
 The script is loaded and validated at startup. `--validate` checks both the
@@ -126,7 +132,7 @@ Key details:
 
 - active voices are stored in a fixed-size pool
 - the render path avoids dynamic allocation and container resizing
-- play/stop requests use a fixed-size control queue consumed by the render worker
+- render-control requests use a fixed-size queue consumed by the render worker
 - active sounds are mixed in real time with sample clamping
 - short gain ramps are applied to avoid abrupt gain jumps
 
@@ -160,9 +166,9 @@ Provides a host-facing event-notification queue for embedded use.
 
 Key details:
 
-- messages are `play`, `stop`, or `shutdown`
-- each play/stop message carries an `event_id` related to one sound inventory
-  entry
+- messages are event notifications or shutdown requests
+- event notifications carry an `event_id` resolved through the selected
+  aircraft catalog
 - producers can use `TryPush()` to avoid blocking
 - `AudioEngine::Run()` blocks on the queue and dispatches messages into the
   engine's non-blocking render-control path
@@ -175,13 +181,12 @@ It loads a scripted timeline of events, starts the audio engine, triggers events
 at scheduled times by pushing `SoundControlMessage` values, and prints what
 happened:
 
-- `PLAY` means a play event notification was queued
-- `STOP` means a stop event notification was queued
-- `REJECT` means the request could not be queued or referenced an unavailable
-  sound
+- `EVENT` means an event notification was queued
+- `REJECT` means the event notification could not be queued
 
-Suppression policy is applied later by the render worker after queued event
-notifications are translated into render-control requests.
+Event actions are resolved by `AudioEngine::Run()`. Suppression policy is
+applied later by the render worker after play actions are translated into
+render-control requests.
 
 ## Embedded Control Mode
 
@@ -199,12 +204,12 @@ engine.Initialize(error_message);
 std::thread mixer_thread(&AudioEngine::Run, &engine, std::ref(control_queue));
 
 control_queue.TryPush({
-    .type = SoundControlMessageType::kPlay,
-    .event_id = SoundId::kMasterCautionSingle,
+    .type = SoundControlMessageType::kNotify,
+    .event_id = EventId::kImproperTakeoffConfiguration,
 });
 control_queue.TryPush({
-    .type = SoundControlMessageType::kStop,
-    .event_id = SoundId::kMasterCautionLoop,
+    .type = SoundControlMessageType::kNotify,
+    .event_id = EventId::kMasterCautionCleared,
 });
 control_queue.TryPush({
     .type = SoundControlMessageType::kShutdown,
