@@ -41,6 +41,7 @@ target_include_directories(cockpit_soundscape PRIVATE
 
 target_compile_options(cockpit_soundscape PRIVATE
     ${SNDFILE_CFLAGS_OTHER}
+    $<$<PLATFORM_ID:Darwin>:-Wno-deprecated-declarations>
 )
 
 target_link_directories(cockpit_soundscape PRIVATE

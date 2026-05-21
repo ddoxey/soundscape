@@ -1,7 +1,14 @@
 #pragma once
 
+#if __has_include(<OpenAL/al.h>)
+#include <OpenAL/al.h>
+#include <OpenAL/alc.h>
+#elif __has_include(<AL/al.h>)
 #include <AL/al.h>
 #include <AL/alc.h>
+#else
+#error "OpenAL headers not found"
+#endif
 
 #include <array>
 #include <atomic>
