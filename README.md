@@ -283,6 +283,43 @@ cmake -S . -B build
 cmake --build build
 ```
 
+### Windows 11 with Visual Studio Professional
+
+The repository includes a `vcpkg.json` manifest and `CMakePresets.json` so
+Visual Studio can restore and link the native dependencies (`SDL2`,
+`libsndfile`, and `yaml-cpp`) through vcpkg.
+
+Install vcpkg once, then set `VCPKG_ROOT`:
+
+```powershell
+git clone https://github.com/microsoft/vcpkg C:\src\vcpkg
+C:\src\vcpkg\bootstrap-vcpkg.bat
+[Environment]::SetEnvironmentVariable("VCPKG_ROOT", "C:\src\vcpkg", "User")
+```
+
+Restart Visual Studio after setting the environment variable.
+
+In Visual Studio Professional:
+
+1. Use **File > Open > Folder...** and choose this repository.
+2. In the CMake configuration dropdown, select
+   **Windows x64 Debug (Visual Studio + vcpkg)**.
+3. Wait for CMake configure to finish. vcpkg will install the manifest
+   dependencies the first time this runs.
+4. Select `cockpit_soundscape.exe` as the startup item.
+5. Use **Debug > Start Without Debugging**.
+
+From a Developer PowerShell, the same preset can be built with:
+
+```powershell
+cmake --preset windows-vs-vcpkg
+cmake --build --preset windows-vs-vcpkg-debug
+```
+
+The demo expects to run from the repository root so the relative `conf/` and
+`sounds/` paths resolve. In Visual Studio, keep the startup working directory as
+the project folder, or pass absolute paths with `--config` and `--script`.
+
 ## Run
 
 Default 60-second demo:

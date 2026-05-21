@@ -1,0 +1,12 @@
+{
+  "name": "cockpit-soundscape",
+  "version-string": "0.1.0",
+  "dependencies": [
+    {
+      "name": "libsndfile",
+      "default-features": false
+    },
+    "sdl2",
+    "yaml-cpp"
+  ]
+}

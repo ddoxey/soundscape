@@ -1,0 +1,32 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-vs-vcpkg",
+      "displayName": "Windows x64 Debug (Visual Studio + vcpkg)",
+      "description": "Build with Visual Studio and vcpkg manifest dependencies.",
+      "generator": "Visual Studio 18 2026",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-vs-vcpkg-debug",
+      "displayName": "Build Windows x64 Debug",
+      "configurePreset": "windows-vs-vcpkg",
+      "configuration": "Debug"
+    }
+  ]
+}
