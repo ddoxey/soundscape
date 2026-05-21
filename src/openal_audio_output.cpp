@@ -4,6 +4,8 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <iostream>
+#include <sstream>
 #include <string_view>
 
 namespace {
@@ -46,6 +48,34 @@ std::string AlcErrorName(ALCenum error) {
   }
 }
 
+std::string JoinDeviceList(const ALCchar* devices) {
+  if (devices == nullptr || *devices == '\0') {
+    return "(none)";
+  }
+
+  std::ostringstream stream;
+  bool first = true;
+  for (const ALCchar* current = devices; *current != '\0';
+       current += std::char_traits<ALCchar>::length(current) + 1) {
+    if (!first) {
+      stream << ", ";
+    }
+    stream << current;
+    first = false;
+  }
+
+  return stream.str();
+}
+
+std::string GetAlcString(ALCdevice* device, ALCenum parameter) {
+  const ALCchar* value = alcGetString(device, parameter);
+  if (value == nullptr || *value == '\0') {
+    return "(unavailable)";
+  }
+
+  return value;
+}
+
 }  // namespace
 
 OpenAlAudioOutput::~OpenAlAudioOutput() { Shutdown(); }
@@ -58,9 +88,36 @@ bool OpenAlAudioOutput::Initialize(AudioRenderTarget& render_target,
 
   device_ = alcOpenDevice(nullptr);
   if (device_ == nullptr) {
-    error_message = "Failed to open the default OpenAL device";
+    std::ostringstream stream;
+    stream << "Failed to open the default OpenAL device";
+    if (alcIsExtensionPresent(nullptr, "ALC_ENUMERATION_EXT") == ALC_TRUE) {
+      stream << ". Available devices: "
+             << JoinDeviceList(alcGetString(nullptr, ALC_DEVICE_SPECIFIER));
+    }
+    if (alcIsExtensionPresent(nullptr, "ALC_ENUMERATE_ALL_EXT") == ALC_TRUE) {
+      stream << ". All devices: "
+             << JoinDeviceList(
+                    alcGetString(nullptr, ALC_ALL_DEVICES_SPECIFIER));
+    }
+    error_message = stream.str();
     render_target_ = nullptr;
     return false;
+  }
+
+  std::clog << "OpenAL default device: "
+            << GetAlcString(nullptr, ALC_DEFAULT_DEVICE_SPECIFIER) << '\n';
+  std::clog << "OpenAL opened device: "
+            << GetAlcString(device_, ALC_DEVICE_SPECIFIER) << '\n';
+  if (alcIsExtensionPresent(nullptr, "ALC_ENUMERATION_EXT") == ALC_TRUE) {
+    std::clog << "OpenAL available devices: "
+              << JoinDeviceList(alcGetString(nullptr, ALC_DEVICE_SPECIFIER))
+              << '\n';
+  }
+  if (alcIsExtensionPresent(nullptr, "ALC_ENUMERATE_ALL_EXT") == ALC_TRUE) {
+    std::clog << "OpenAL all devices: "
+              << JoinDeviceList(
+                     alcGetString(nullptr, ALC_ALL_DEVICES_SPECIFIER))
+              << '\n';
   }
 
   context_ = alcCreateContext(device_, nullptr);
@@ -181,26 +238,66 @@ void OpenAlAudioOutput::WorkerLoop() {
   while (running_) {
     ALint processed_count = 0;
     alGetSourcei(source_, AL_BUFFERS_PROCESSED, &processed_count);
+    ALenum error = alGetError();
+    if (error != AL_NO_ERROR) {
+      std::cerr << BuildAlError("query processed buffer count", error) << '\n';
+      running_ = false;
+      break;
+    }
 
     // OpenAL marks queued buffers as processed after playback consumes them.
     // Refill and requeue each processed buffer to produce a continuous stream.
     while (processed_count > 0) {
       ALuint buffer_id = 0;
       alSourceUnqueueBuffers(source_, 1, &buffer_id);
+      error = alGetError();
+      if (error != AL_NO_ERROR) {
+        std::cerr << BuildAlError("unqueue processed OpenAL buffer", error)
+                  << '\n';
+        running_ = false;
+        break;
+      }
 
       if (FillBuffer(buffer_id, nullptr)) {
         alSourceQueueBuffers(source_, 1, &buffer_id);
+        error = alGetError();
+        if (error != AL_NO_ERROR) {
+          std::cerr << BuildAlError("requeue processed OpenAL buffer", error)
+                    << '\n';
+          running_ = false;
+          break;
+        }
+      } else {
+        std::cerr << "Failed to refill processed OpenAL buffer\n";
+        running_ = false;
+        break;
       }
 
       --processed_count;
     }
 
+    if (!running_) {
+      break;
+    }
+
     ALint source_state = AL_STOPPED;
     alGetSourcei(source_, AL_SOURCE_STATE, &source_state);
+    error = alGetError();
+    if (error != AL_NO_ERROR) {
+      std::cerr << BuildAlError("query OpenAL source state", error) << '\n';
+      running_ = false;
+      break;
+    }
     if (source_state != AL_PLAYING) {
       // If the source underruns, restart it after queueing whatever buffers are
       // available.
       alSourcePlay(source_);
+      error = alGetError();
+      if (error != AL_NO_ERROR) {
+        std::cerr << BuildAlError("restart OpenAL source", error) << '\n';
+        running_ = false;
+        break;
+      }
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
